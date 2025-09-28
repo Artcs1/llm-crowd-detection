@@ -1,9 +1,23 @@
+import cv2
+import os
 import dspy
 import json
 import argparse
 import pandas as pd
 from tqdm.auto import tqdm
 from prompts import IdentifyGroups, IdentifyGroups_Zcoord, IdentifyGroups_Zcoord_Direction
+
+
+CV2_COLORS = [
+    (0, 0, 255),    # Red
+    (0, 255, 0),    # Green
+    (255, 0, 0),    # Blue
+    (0, 255, 255),  # Yellow
+    (255, 255, 0),  # Cyan
+    (255, 0, 255),  # Magenta
+    (0, 0, 0),      # Black
+    (255, 255, 255) # White
+]
 
 
 def parse_args():
@@ -17,6 +31,7 @@ def parse_args():
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
     parser.add_argument('--max_tokens', type=int, default=32768)
+    parser.add_argument('--frame_path', type=str, default=None, help='Path to frame for visualization')
     return parser.parse_args()
 
 
@@ -72,22 +87,46 @@ def main():
     
     if not frame_found:
         print(f"Frame ID {args.frame_id} not found in the data.")
+        return
 
 
     frame_input_data = []
+    personid2bbox = {}
     for i,det in enumerate(frame['detections']):
+        personid2bbox[det['track_id']] = det['bbox']
         if use_direction:
             frame_input_data.append({'person_id': det['track_id'], 'x': det[args.depth_method][0], 'y': det[args.depth_method][1], 'z': det[args.depth_method][2], 'direction':det['direction']})
         else:
             frame_input_data.append({'person_id': det['track_id'], 'x': det[args.depth_method][0], 'y': det[args.depth_method][1], 'z': det[args.depth_method][2]})
     
     output = inference_wrapper(lm, dspy_cot, frame_input_data)
+    if output['error'] is not None:
+        print(f"Error during inference: {output['error']}")
+        return
 
     output['frame_id'] = args.frame_id
 
-    print(output)     
+    if args.frame_path is not None:
+        img = cv2.imread(args.frame_path)
 
+        for i, group in enumerate(output['groups']):
+            for person_id in group:
+                xl, yl, x2, y2 = personid2bbox[person_id]
+                cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i], 2)
 
+        # configure this path                
+        res_path = '/lustre/nvwulf/scratch/pchitale/workspace/llm-crowd-detection/results/single_inference_experiments'
+        res_path = os.path.join(res_path, args.model.split('/')[1]+'_'+args.prompt_method+'_'+args.depth_method, args.frame_path.split('/')[-2],)
+        os.makedirs(res_path, exist_ok=True)
+        save_path = os.path.join(res_path, os.path.basename(args.frame_path).split('.')[0] + '.png')
+        print(save_path)
+        cv2.imwrite(save_path, img)
+    
+    else:
+        print(json.dumps(output, indent=4))
+
+        # get last folder path from args.frame_path
+        
     
 
 if __name__ == "__main__":
