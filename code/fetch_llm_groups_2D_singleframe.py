@@ -4,10 +4,38 @@ import dspy
 import json
 import argparse
 import pandas as pd
-from constants import CV2_COLORS
 from tqdm.auto import tqdm
-from prompts import IdentifyGroups, IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive
+from prompts import IdentifyGroups2D, IdentifyGroups_Zcoord, IdentifyGroups_Zcoord_Direction
 
+
+CV2_COLORS = [
+    (0, 0, 255),      # Red
+    (0, 255, 0),      # Green
+    (255, 0, 0),      # Blue
+    (0, 255, 255),    # Yellow
+    (255, 255, 0),    # Cyan
+    (255, 0, 255),    # Magenta
+    (0, 0, 0),        # Black
+    (255, 255, 255),  # White
+
+    (128, 0, 0),      # Maroon
+    (0, 128, 0),      # Dark Green
+    (0, 0, 128),      # Navy
+    (128, 128, 0),    # Olive
+    (128, 0, 128),    # Purple
+    (0, 128, 128),    # Teal
+    (192, 192, 192),  # Silver
+    (128, 128, 128),  # Gray
+
+    (0, 165, 255),    # Orange (OpenCV-style BGR)
+    (203, 192, 255),  # Pink (light magenta)
+    (42, 42, 165),    # Brown
+    (60, 179, 113),   # Medium Sea Green
+    (147, 20, 255),   # Deep Pink
+    (50, 205, 50),    # Lime Green
+    (255, 105, 180),  # Hot Pink
+    (19, 69, 139),    # Dark Slate Blue
+]
 
 
 def parse_args():
@@ -16,7 +44,7 @@ def parse_args():
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
-    parser.add_argument('--prompt_method', type=str, choices=['p1', 'p2', 'p3', 'p4'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['p1', 'p2', 'p3'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
@@ -61,15 +89,7 @@ def main():
 
     use_direction = False
     if args.prompt_method == 'p1':
-        dspy_cot = dspy.ChainOfThought(IdentifyGroups)
-    elif args.prompt_method == 'p2':
-        dspy_cot = dspy.ChainOfThought(IdentifyGroups_Direction)
-        use_direction = True
-    elif args.prompt_method == 'p3':
-        dspy_cot = dspy.ChainOfThought(IdentifyGroups_Transitive)
-    elif args.prompt_method == 'p4':
-        dspy_cot = dspy.ChainOfThought(IdentifyGroups_DirectionTransitive)
-        use_direction = True
+        dspy_cot = dspy.ChainOfThought(IdentifyGroups2D)
 
 
     frame_found = False
@@ -87,10 +107,7 @@ def main():
     personid2bbox = {}
     for i,det in enumerate(frame['detections']):
         personid2bbox[det['track_id']] = det['bbox']
-        if use_direction:
-            frame_input_data.append({'person_id': det['track_id'], 'x': det[args.depth_method][0], 'y': det[args.depth_method][1], 'z': det[args.depth_method][2], 'direction':det['direction']})
-        else:
-            frame_input_data.append({'person_id': det['track_id'], 'x': det[args.depth_method][0], 'y': det[args.depth_method][1], 'z': det[args.depth_method][2]})
+        frame_input_data.append({'person_id': det['track_id'], 'x': (det['bbox'][0]+det['bbox'][2])/2, 'y': (det['bbox'][1]+det['bbox'][3])/2})
     
     output = inference_wrapper(lm, dspy_cot, frame_input_data)
     if output['error'] is not None:
@@ -108,7 +125,7 @@ def main():
                 cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i], 2)
 
         # configure this path                
-        res_path = '/lustre/nvwulf/scratch/pchitale/workspace/llm-crowd-detection/results/SIE_4prompt'
+        res_path = '/lustre/nvwulf/scratch/pchitale/workspace/llm-crowd-detection/results/single_inference_experiments2D'
         res_path = os.path.join(res_path, args.model.split('/')[1]+'/'+args.depth_method+'/'+args.prompt_method, args.frame_path.split('/')[-2],)
         os.makedirs(res_path, exist_ok=True)
         save_path = os.path.join(res_path, os.path.basename(args.frame_path).split('.')[0] + '.png')
@@ -128,3 +145,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+        
