@@ -94,6 +94,7 @@ def main():
         res['system_message'] = output['hist']['messages'][0]['content']
         res['user_message'] = output['hist']['messages'][1]['content']
         res['output_message'] = output['hist']['response'].choices[0].message.content
+        res['error'] = output['error']
         results.append(res)
 
 
