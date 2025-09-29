@@ -71,7 +71,7 @@ def main():
         use_direction = True
 
     results = []
-    for frame in data['frames'][:5]:
+    for frame in tqdm(data['frames']):
         frame_input_data = []
         personid2bbox = {}
         for i,det in enumerate(frame['detections']):

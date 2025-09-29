@@ -1,0 +1,2 @@
+#vllm serve Qwen/Qwen3-30B-A3B-Instruct-2507 --api-key testkey
+#vllm serve meta-llama/Llama-3.1-8B-Instruct --api-key testkey
