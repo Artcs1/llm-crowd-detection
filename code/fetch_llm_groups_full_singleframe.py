@@ -22,7 +22,7 @@ def parse_args():
     parser.add_argument('--temperature', type=float, default=0.6)
     parser.add_argument('--max_tokens', type=int, default=32768)
     parser.add_argument('--frame_path', type=str, default=None, help='Path to frame for visualization')
-    return parser.parse_args("/lustre/nvwulf/scratch/pchitale/workspace/llm-crowd-detection/data/json/json_0928/Cusco_Peru_0003002_clip_001.json Qwen/Qwen3-30B-A3B-Instruct-2507 15 --depth_method detany_3D --prompt_method p1 --frame_path /lustre/nvwulf/scratch/pchitale/workspace/llm-crowd-detection/data/videos/videos_0928/Cusco_Peru_0003002_clip_001/00015.jpeg".split())
+    return parser.parse_args()
 
 
 def inference(dspy_module, input_text, target_frame):
