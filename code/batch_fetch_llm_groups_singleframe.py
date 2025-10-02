@@ -62,13 +62,14 @@ def main():
 
     collected_files = [os.path.join(args.filename,f) for f in os.listdir(args.filename) if os.path.isfile(os.path.join(args.filename, f))]
 
+    lm = dspy.LM('openai/'+args.model, api_key=args.api_key, api_base=args.api_base, temperature=args.temperature, max_tokens=args.max_tokens)
+    dspy.configure(lm=lm)
+
     for current_file in tqdm(collected_files):
 
         with open(current_file, 'r') as f:
             data = json.load(f)
 
-        lm = dspy.LM('openai/'+args.model, api_key=args.api_key, api_base=args.api_base, temperature=args.temperature, max_tokens=args.max_tokens)
-        dspy.configure(lm=lm)
         os.makedirs(args.model, exist_ok=True)
 
         use_direction = False
@@ -107,7 +108,7 @@ def main():
         output = inference_wrapper(lm, dspy_cot, frame_input_data)
         if output['error'] is not None:
             print(f"Error during inference: {output['error']}")
-            return
+            continue
 
         output['frame_id'] = args.frame_id
         output['id_tobbox'] = personid2bbox
