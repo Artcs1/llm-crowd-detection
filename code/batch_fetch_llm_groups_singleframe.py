@@ -99,21 +99,20 @@ def main():
             os.makedirs(res_path, exist_ok=True)
             save_path = os.path.join(res_path, 'result.png')
             cv2.imwrite(save_path, img)
-            
+
             #save output json
-            with open(f'{args.model}/{save_filename}.json', "w") as f:
+            with open(f'{res_path}/{save_filename}.json', "w") as f:
                 json.dump(output, f, indent=4)
-            #with open(save_path.replace('.png', '.txt'), 'w') as f:
-            #    f.write(str(output))
         
         else:
-            
-            with open(f'{args.model}/{save_filename}.json', "w") as f:
-                json.dump(output, f, indent=4)
 
-            # get last folder path from args.frame_path
-            
-        
+            res_path = 'results'
+            res_path = os.path.join(res_path, args.model.split('/')[1]+'/'+args.depth_method+'/'+args.prompt_method, save_filename,)
+            os.makedirs(res_path, exist_ok=True)
+            with open(f'{res_path}/{save_filename}.json', "w") as f:
+                json.dump(output, f, indent=4)
+             
+         
 
 if __name__ == "__main__":
     main()

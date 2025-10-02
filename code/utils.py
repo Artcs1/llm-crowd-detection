@@ -7,7 +7,7 @@ import pandas as pd
 from constants import CV2_COLORS
 from tqdm.auto import tqdm
 from prompts import IdentifyGroups, IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive
-from prompts import IdentifyGroupsImage, IdentifyGroups_DirectionImage, IdentifyGroups_TransitiveImage, IdentifyGroups_DirectionTransitiveImage
+from prompts import GroupsQAonlyImage,IdentifyGroupsImage, IdentifyGroups_DirectionImage, IdentifyGroups_TransitiveImage, IdentifyGroups_DirectionTransitiveImage
 
 
 
@@ -57,6 +57,8 @@ def get_dspy_cot(mode, prompt_method):
             dspy_cot = dspy.ChainOfThought(IdentifyGroups_DirectionTransitive)
             use_direction = True
     elif mode == 'vlm':
+        if prompt_method == 'p0':
+            dspy_cot = dspy.ChainOfThought(GroupsQAonlyImage)
         if prompt_method == 'p1':
             dspy_cot = dspy.ChainOfThought(IdentifyGroupsImage)
         elif prompt_method == 'p2':

@@ -45,7 +45,36 @@ class IdentifyGroups_AllFrames(dspy.Signature):
     )
     groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together in the target frame, inferred using spatial and temporal context from all frames.")
 
+class GroupsQAonlyImage(dspy.Signature):
+    """
+    From the image infer the list of people with their 3D positions, group them into sets where each set contains people who are close to each other in space. Mentally compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if their pairwise distances are below this threshold. Return only non-empty groups. Do not merge distant people into the same group.
+    
+    Grouping rules:
+    - People must be close together.
+    - Use intuition instead of fixed distance thresholds.
 
+    Final answer format:
+    - A list of grous.
+    - Each group is a list of bounding boxes where each bbox contains only a person.
+    - Each bounding box = [t, l, b, r] (integers).
+    - Example:
+      [[[10, 20, 40, 60], [50, 70, 80, 120]], [[200, 150, 240, 210]]]
+    - Output ONLY the list, no extra text.
+    """
+
+    image: dspy.Image = dspy.InputField(desc="Image with people to group")
+    groups: list[list[list[int]]] = dspy.OutputField(
+        desc="List of groups of bounding boxes, each in [t, l, b, r]"
+    )
+
+
+class classicGroupsQAImage(dspy.Signature):
+    """From the image infer the list of people with their 3D positions, group them into sets where each set contains people who are close to each other in space. Mentally compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if their pairwise distances are below this threshold. Return only non-empty groups. Do not merge distant people into the same group."""
+    
+    image: dspy.Image = dspy.InputField(desc="Image with people to group")
+    answer: str = dspy.OutputField(
+        desc="List of groups of bounding boxes, each in [t, l, b, r]"
+    )
 
 class IdentifyGroups2DImage(dspy.Signature):
     """Given a list of people with their 2D bounding-box center's positions, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances (e.g., a natural gap or a small percentile that separates close points from distant ones). People belong to the same group if they are connected by pairwise distances below this threshold (transitively include people: if A is close to B and B is close to C, all three should be in the same group). Return only non-empty groups. Do not merge distant people into the same group."""
@@ -60,19 +89,19 @@ class IdentifyGroupsImage(dspy.Signature):
     groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids that are close together.")
 
 class IdentifyGroups_DirectionImage(dspy.Signature):
-    """Given a list of people with their 3D positions, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if their pairwise distances are below this threshold. All people in the group must have a facing direction that is roughly aligned. Do not merge distant people into the same group."""
+    """Given a list of people with their 3D positions and its direction, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if their pairwise distances are below this threshold. All people in the group might have a facing direction that is roughly aligned, You can infer this information from the image. Do not merge distant people into the same group."""
     image: dspy.Image = dspy.InputField(desc="Image with people to group")
     detections: list[dict] = dspy.InputField(desc="List of people, where each dictionary has keys: 'person_id', 'x', 'y', 'z', 'direction'.")
     groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids that are close together.")
 
 class IdentifyGroups_TransitiveImage(dspy.Signature):
-    """Given a list of people with their 3D positions, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if their pairwise distances are below this threshold. Transitively include people: if A is close to B and B is close to C, all three should be in the same group. Return only non-empty groups. Do not merge distant people into the same group."""
+    """Given a list of people with their 3D positions, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if their pairwise distances are below this threshold. Transitively include people: if A is close to B and B is close to C, all three should be in the same group. Extrapolate this reason to mroe groups. Return only non-empty groups. Do not merge distant people into the same group."""
     image: dspy.Image = dspy.InputField(desc="Image with people to group")
     detections: list[dict] = dspy.InputField(desc="List of people, where each dictionary has keys: 'person_id', 'x', 'y', 'z'.")
     groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids that are close together.")
 
 class IdentifyGroups_DirectionTransitiveImage(dspy.Signature):
-    """Given a list of people with their 3D positions, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if their pairwise distances are below this threshold. People belong to the same group if their pairwise distances are below this threshold. Transitively include people: if A is close to B and B is close to C, all three should be in the same group. Return only non-empty groups. Do not merge distant people into the same group."""
+    """Given a list of people with their 3D positions and its direction, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if their pairwise distances are below this threshold. People belong to the same group if their pairwise distances are below this threshold. Transitively include people: if A is close to B and B is close to C, all three should be in the same group. All people in the group might have a facing direction that is roughly aligned, You can infer this information from the image. Return only non-empty groups. Do not merge distant people into the same group."""
     image: dspy.Image = dspy.InputField(desc="Image with people to group")
     detections: list[dict] = dspy.InputField(desc="List of people, where each dictionary has keys: 'person_id', 'x', 'y', 'z', 'direction'.")
-
+    groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids that are close together.")

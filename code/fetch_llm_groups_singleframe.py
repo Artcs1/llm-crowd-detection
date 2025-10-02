@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
-    parser.add_argument('--prompt_method', type=str, choices=['p1', 'p2', 'p3', 'p4'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['p0','p1', 'p2', 'p3', 'p4'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
@@ -38,8 +38,6 @@ def main():
 
     lm = dspy.LM('openai/'+args.model, api_key=args.api_key, api_base=args.api_base, temperature=args.temperature, max_tokens=args.max_tokens)
     dspy.configure(lm=lm)
-    os.makedirs(args.model, exist_ok=True)
-    
     dspy_cot, use_direction = get_dspy_cot(args.mode, args.prompt_method)
    
     frame_found = False
@@ -88,20 +86,21 @@ def main():
         # configure this path                
         res_path = 'results'
         res_path = os.path.join(res_path, args.model.split('/')[1]+'/'+args.depth_method+'/'+args.prompt_method, save_filename,)
-        print(res_path)
-        os.makedirs(res_path, exist_ok=True)
-        save_path = os.path.join(res_path, 'result.png')
+        save_path = os.path.join(res_path, '{save_filename}.png')
         cv2.imwrite(save_path, img)
         
         #save output json
-        with open(f'{args.model}/{save_filename}.json', "w") as f:
+        with open(f'{res_path}/{save_filename}.json', "w") as f:
             json.dump(output, f, indent=4)
         #with open(save_path.replace('.png', '.txt'), 'w') as f:
         #    f.write(str(output))
     
     else:
-        
-        with open(f'{args.model}/{save_filename}.json', "w") as f:
+
+        res_path = 'results'
+        res_path = os.path.join(res_path, args.model.split('/')[1]+'/'+args.depth_method+'/'+args.prompt_method, save_filename,)
+        os.makedirs(res_path, exist_ok=True)
+        with open(f'{res_path}/{save_filename}.json', "w") as f:
             json.dump(output, f, indent=4)
 
 
