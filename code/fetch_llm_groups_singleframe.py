@@ -9,6 +9,8 @@ from tqdm.auto import tqdm
 from prompts import IdentifyGroups, IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive
 from prompts import IdentifyGroupsImage, IdentifyGroups_DirectionImage, IdentifyGroups_TransitiveImage, IdentifyGroups_DirectionTransitiveImage
 
+from utils import *
+
 
 
 def parse_args():
@@ -27,41 +29,7 @@ def parse_args():
     parser.add_argument("--save", action="store_true", help="Activar modo debug")
     return parser.parse_args()
 
-
-def inference(dspy_module, input_text, mode='llm', image_path='optional'):
-    is_error = False
-    try:
-        if mode == 'llm':
-            predictions = dspy_module(detections=input_text)
-        elif mode == 'vlm':
-            predictions = dspy_module(image=dspy.Image.from_file(image_path), detections=input_text)
-        output = predictions.groups
-    except Exception as e:
-        output = str(e)
-        is_error = True
-    return output, is_error
-
-
-def inference_wrapper(lm, dspy_module, input_text, mode='llm', image_path='optional'):
-    if mode == 'llm':
-        output, is_error = inference(dspy_module, input_text, mode)
-    elif mode == 'vlm':
-        output, is_error = inference(dspy_module, input_text, mode, image_path)
-    res = {}
-    if not is_error:
-        res['groups'] = output
-        #res['hist'] = lm.history[-1]
-        res['error'] = None
-    else:
-        res['groups'] = None
-        #res['hist'] = lm.history[-1]
-        res['error'] = output
-    return res
-
-
 def main():
-
-
 
 
     args = parse_args()
@@ -71,33 +39,9 @@ def main():
     lm = dspy.LM('openai/'+args.model, api_key=args.api_key, api_base=args.api_base, temperature=args.temperature, max_tokens=args.max_tokens)
     dspy.configure(lm=lm)
     os.makedirs(args.model, exist_ok=True)
-
-    use_direction = False
-    if args.mode == 'llm':
-        if args.prompt_method == 'p1':
-            dspy_cot = dspy.ChainOfThought(IdentifyGroups)
-        elif args.prompt_method == 'p2':
-            dspy_cot = dspy.ChainOfThought(IdentifyGroups_Direction)
-            use_direction = True
-        elif args.prompt_method == 'p3':
-            dspy_cot = dspy.ChainOfThought(IdentifyGroups_Transitive)
-        elif args.prompt_method == 'p4':
-            dspy_cot = dspy.ChainOfThought(IdentifyGroups_DirectionTransitive)
-            use_direction = True
-    elif args.mode == 'vlm':
-        if args.prompt_method == 'p1':
-            dspy_cot = dspy.ChainOfThought(IdentifyGroupsImage)
-        elif args.prompt_method == 'p2':
-            dspy_cot = dspy.ChainOfThought(IdentifyGroups_DirectionImage)
-            use_direction = True
-        elif args.prompt_method == 'p3':
-            dspy_cot = dspy.ChainOfThought(IdentifyGroups_TransitiveImage)
-        elif args.prompt_method == 'p4':
-            dspy_cot = dspy.ChainOfThought(IdentifyGroups_DirectionTransitiveImage)
-            use_direction = True
-
-
-
+    
+    dspy_cot, use_direction = get_dspy_cot(args.mode, args.prompt_method)
+   
     frame_found = False
     for frame in data['frames']:
         if frame['frame_id'] == args.frame_id:
