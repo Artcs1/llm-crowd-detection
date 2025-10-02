@@ -21,7 +21,8 @@ def parse_args():
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
     parser.add_argument('--max_tokens', type=int, default=32768)
-    parser.add_argument('--frame_path', type=str, default=None, help='Path to frame for visualization')
+    parser.add_argument('--frame_path', type=str, default='VBIG_dataset/videos_frames', help='Path to frame for visualization')
+    parser.add_argument("--save", action="store_true", help="Activar modo debug")
     return parser.parse_args()
 
 
@@ -41,23 +42,27 @@ def inference_wrapper(lm, dspy_module, input_text):
     res = {}
     if not is_error:
         res['groups'] = output
-        res['hist'] = lm.history[-1]
+        #res['hist'] = lm.history[-1]
         res['error'] = None
     else:
         res['groups'] = None
-        res['hist'] = lm.history[-1]
+        #res['hist'] = lm.history[-1]
         res['error'] = output
     return res
 
 
 def main():
+
+
+
+
     args = parse_args()
-    print(args)
     with open(args.filename, 'r') as f:
         data = json.load(f)
 
     lm = dspy.LM('openai/'+args.model, api_key=args.api_key, api_base=args.api_base, temperature=args.temperature, max_tokens=args.max_tokens)
     dspy.configure(lm=lm)
+    os.makedirs(args.model, exist_ok=True)
 
     use_direction = False
     if args.prompt_method == 'p1':
@@ -98,9 +103,14 @@ def main():
         return
 
     output['frame_id'] = args.frame_id
+    output['id_tobbox'] = personid2bbox
 
-    if args.frame_path is not None:
-        img = cv2.imread(args.frame_path)
+    #for 
+
+    save_filename = args.filename.split('/')[-1][:-5]
+    if args.save == True:
+        frame_path = f'{args.frame_path}/{save_filename}/{str(args.frame_id).zfill(5)}.jpeg'
+        img = cv2.imread(frame_path)
 
         for i, group in enumerate(output['groups']):
             for person_id in group:
@@ -108,19 +118,24 @@ def main():
                 cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i], 2)
 
         # configure this path                
-        res_path = '/lustre/nvwulf/scratch/pchitale/workspace/llm-crowd-detection/results/SIE_4prompt'
-        res_path = os.path.join(res_path, args.model.split('/')[1]+'/'+args.depth_method+'/'+args.prompt_method, args.frame_path.split('/')[-2],)
+        res_path = 'results'
+        res_path = os.path.join(res_path, args.model.split('/')[1]+'/'+args.depth_method+'/'+args.prompt_method, save_filename,)
         os.makedirs(res_path, exist_ok=True)
-        save_path = os.path.join(res_path, os.path.basename(args.frame_path).split('.')[0] + '.png')
-        print(save_path)
+        save_path = os.path.join(res_path, 'result.png')
         cv2.imwrite(save_path, img)
         
         #save output json
-        with open(save_path.replace('.png', '.txt'), 'w') as f:
-            f.write(str(output))
+        with open(f'{args.model}/{save_filename}', "w") as f:
+            json.dump(output, f, indent=4)
+        #with open(save_path.replace('.png', '.txt'), 'w') as f:
+        #    f.write(str(output))
     
     else:
-        print(json.dumps(output, indent=4))
+        
+        with open(f'{args.model}/{save_filename}', "w") as f:
+            json.dump(output, f, indent=4)
+
+
 
         # get last folder path from args.frame_path
         
