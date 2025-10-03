@@ -9,7 +9,6 @@ from tqdm.auto import tqdm
 from prompts import IdentifyGroups, IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Metadata JSON file")
     parser.add_argument('filename', type=str)
