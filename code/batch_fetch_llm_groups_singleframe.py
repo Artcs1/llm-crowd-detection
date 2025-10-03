@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument('--temperature', type=float, default=0.6)
     parser.add_argument('--max_tokens', type=int, default=32768)
     parser.add_argument('--frame_path', type=str, default='VBIG_dataset/videos_frames', help='Path to frame for visualization')
-    parser.add_argument("--save", action="store_true", help="Activar modo debug")
+    parser.add_argument("--save_image", action="store_true", help="Activar modo debug")
     return parser.parse_args()
 
 
@@ -87,7 +87,7 @@ def main():
             output['frame_id'] = args.frame_id
             output['id_tobbox'] = personid2bbox
     
-            if args.save == True:
+            if args.save_image == True:
                 img = cv2.imread(frame_path)
     
                 if args.prompt_method == 'baseline1' or args.prompt_method == 'baseline2':
