@@ -17,8 +17,9 @@ pip install dspy
 pip install pandas
 ```
 
-## Structure
-*[To be documented]*
+## Pre-steps
+
+- Serve the llm or vllm with vllm package (Examples in vllm_commands.txt)
 
 ## Usage
 
@@ -69,5 +70,7 @@ python3 fetch_llm_groups_singleframe.py \
   --prompt_method baseline1 \
   --save_image
 ```
-```
+
+*Hint*: The code assume that the image is located in "{args.frame_path}/{args.filename[:-5]}/{str(args.frame_id).zfill(5)}.jpeg"
+
 
