@@ -23,15 +23,18 @@ pip install pandas
 ## Usage
 
 ### Main Scripts
-The project includes two main scripts for LLM/VLM experiments:
+The project includes four main scripts for LLM/VLM experiments:
 - `fetch_llm_groups_singleframe.py` - Process a single frame
-- `batch_fetch_llm_groups_singleframe.py` - Batch processing
+- `batch_fetch_llm_groups_singleframe.py` - Batch processing for a single frame
+- `fetch_llm_groups_full_singleframe.py` - Process the video
+- `batch_fetch_llm_groups_full_singleframe.py` - Batch processing for the whole video
 
 Both scripts support:
 - **LLM and VLM modes** (text-only and image modes)
 - **Single frame or full frame processing**
 
-### Command Syntax
+### Command Syntax (Single frame)
+
 ```bash
 python3 fetch_llm_groups_singleframe.py <filename> <mode> <model> <frame_id> [options]
 ```
