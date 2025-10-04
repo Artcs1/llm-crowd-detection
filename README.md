@@ -75,11 +75,42 @@ python3 fetch_llm_groups_singleframe.py \
 
 
 ### Command Syntax (Batch Single frame)
-This command is similar to the previous one just consider that now you send a folder that should contain a bunch of .json. 
+This command is similar to the previous one just consider that now you send a folder that should contain a bunch of .json. Same previous assumptions about the location of the image/video.
 
 ### Example Usage
 ```bash
 python3 batch_fetch_llm_groups_singleframe.py \
+  VBIG_dataset/jsons_step5/ \
+  vlm_image \
+  Qwen/Qwen2.5-VL-72B-Instruct \
+  10 \
+  --prompt_method p1 \
+  --save_image
+```
+
+
+### Command Syntax (Multiple frame)
+Here we sent a only json file. Same previous assumptions about the location of the image/video. Here prompt strategy are only `p1` and `baseline1` (for vlm_image only). Other input variable logic is the same. 
+
+### Example Usage
+```bash
+python3 fetch_llm_groups_full_singleframe.py \
+  VBIG_dataset/jsons_step5/Cusco_Peru_0003018_clip_002.json \
+  vlm_image \
+  Qwen/Qwen2.5-VL-72B-Instruct \
+  10 \
+  --prompt_method p1 \
+  --save_image
+```
+
+
+### Command Syntax (Batch Multi frame)
+This command is similar to the previous one just consider that now you send a folder that should contain a bunch of .json. Same previous assumptions about the location of the image/video. Here prompt strategy are only `p1` and `baseline1` (for vlm_image only). Other input variable logic is the same. 
+
+
+### Example Usage
+```bash
+python3 batch_fetch_llm_groups_full_singleframe.py \
   VBIG_dataset/jsons_step5/ \
   vlm_image \
   Qwen/Qwen2.5-VL-72B-Instruct \
