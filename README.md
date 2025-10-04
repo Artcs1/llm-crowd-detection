@@ -52,7 +52,7 @@ python3 fetch_llm_groups_singleframe.py <filename> <mode> <model> <frame_id> [op
 | Flag              | Type  | Default                      | Description                                                                                                           |
 |-------------------|-------|------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `--depth_method`  | str   | `naive_3D_60FOV`             | Depth estimation method: `naive_3D_60FOV`, `naive_3D_110FOV`, `naive_3D_160FOV`, `unidepth_3D`, `detany_3D`           |
-| `--prompt_method` | str   | `p1`                         | Prompt strategy: `baseline1`, `p1` (3D), `p2` (3D+Direction), `p3` (3D+Transitive), `p4` (3D+Transitive+Direction)    |
+| `--prompt_method` | str   | `p1`                         | Prompt strategy: `baseline1` (only available with vlm_image), `p1` (3D), `p2` (3D+Direction), `p3` (3D+Transitive), `p4` (3D+Transitive+Direction)    |
 | `--api_base`      | str   | `http://localhost:8000/v1`   | API base URL for model inference                                                                                      |
 | `--api_key`       | str   | `testkey`                    | API authentication key                                                                                                |
 | `--temperature`   | float | `0.6`                        | Sampling temperature (higher = more random, lower = more deterministic)                                               |
