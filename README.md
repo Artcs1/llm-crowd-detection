@@ -19,7 +19,10 @@ pip install pandas
 
 ## Pre-steps
 
-- Serve the llm or vllm with vllm package (Examples in vllm_commands.txt)
+- Serve the llm or vllm with vllm package (Examples in vllm_commands.txt). The name of the served model and args.model should be the same.
+```bash
+vllm serve Qwen/Qwen2.5-VL-72B-Instruct --api-key testkey --tensor-parallel-size 4
+```
 
 ## Usage
 
