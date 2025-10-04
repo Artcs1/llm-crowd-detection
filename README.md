@@ -22,15 +22,14 @@ pip install dspy
 
 Files in code support experiments with llm and vlm (text only mode, and with image mode). Both have options to run only with one frame or the full frames. Options to run them is as follows:
 
+```
 python3 fetch_llm_groups_singleframe.py <filename> <mode> <model> <frame_id> [options]
+```
 
-| Argument   | Type | Description                                    |
-| ---------- | ---- | ---------------------------------------------- |
-| `filename` | str  | Path to the metadata JSON file                 |
-| `mode`     | str  | Execution mode (e.g., text, image, etc.)       |
-| `model`    | str  | Model identifier (local or API-served LLM/VLM) |
-| `frame_id` | int  | Frame index to process                         |
-
+* filename (str): a json which contains the metada
+* mode (str): Options are llm, vlm_text, vlm_image
+* model (str): Name of the model served by other package. We mainly served with vllm and try models as:
+* frame_id (int): Frame index to process  
 
 | Flag              | Type  | Default                      | Description                                                                                                           |
 | ----------------- | ----- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
