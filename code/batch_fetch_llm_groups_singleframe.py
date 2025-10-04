@@ -91,9 +91,9 @@ def main():
                 img = cv2.imread(frame_path)
     
                 if args.prompt_method == 'baseline1' or args.prompt_method == 'baseline2':
-                    for p in output['groups']:
-                        for ind, bbox in enumerate(p):
-                            img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[1], bbox[2]), CV2_COLORS[ind], 2)
+                    for ind, p in enumerate(output['groups']):
+                        for bbox in p:
+                            img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind], 2)
                 else:
                     for i, group in enumerate(output['groups']):
                         for person_id in group:

@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','p1', 'p2', 'p3', 'p4'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2', 'p1', 'p2', 'p3', 'p4'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
@@ -79,9 +79,9 @@ def main():
         img = cv2.imread(frame_path)
 
         if args.prompt_method == 'baseline1' or args.prompt_method == 'baseline2' :
-            for p in output['groups']:
-                for ind, bbox in enumerate(p):
-                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[1], bbox[2]), CV2_COLORS[ind], 2)
+            for ind, p in enumerate(output['groups']):
+                for bbox in p:
+                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind], 2)
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
