@@ -67,12 +67,23 @@ python3 fetch_llm_groups_singleframe.py \
   vlm_image \
   Qwen/Qwen2.5-VL-72B-Instruct \
   10 \
-  --prompt_method baseline1 \
+  --prompt_method p1 \
   --save_image
 ```
 
 **Hint**: The code assume that the image is located in "{args.frame_path}/{args.filename[:-5]}/{str(args.frame_id).zfill(5)}.jpeg". For the last example that will be equal to VBIG_dataset/videos_frames/Cusco_Peru_0003018_clip_002/00010.jpeg
 
 
+### Command Syntax (Batch Single frame)
+This command is similar to the previous one just consider that now you send a folder that should contain a bunch of .json. 
 
-
+### Example Usage
+```bash
+python3 batch_fetch_llm_groups_singleframe.py \
+  VBIG_dataset/jsons_step5/ \
+  vlm_image \
+  Qwen/Qwen2.5-VL-72B-Instruct \
+  10 \
+  --prompt_method p1 \
+  --save_image
+```
