@@ -112,7 +112,7 @@ python3 fetch_llm_groups_full_singleframe.py \
 ```
 
 
-### Command Syntax (Batch Multi frame)
+### Command Syntax (Batch Multiple frame)
 This command is similar to the previous one just consider that now you send a folder that should contain a bunch of .json. Same previous assumptions about the location of the image/video. Here prompt strategy are only `p1` and `baseline1` (for vlm_image only). Other input variable logic is the same. 
 
 
