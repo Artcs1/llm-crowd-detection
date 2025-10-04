@@ -16,6 +16,11 @@ pip install vllm
 pip install dspy
 pip install pandas
 ```
+### 3. Install Requirements
+
+```bash
+cd code
+```
 
 ## Pre-steps
 
