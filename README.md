@@ -71,6 +71,6 @@ python3 fetch_llm_groups_singleframe.py \
   --save_image
 ```
 
-*Hint*: The code assume that the image is located in "{args.frame_path}/{args.filename[:-5]}/{str(args.frame_id).zfill(5)}.jpeg"
+**Hint**: The code assume that the image is located in "{args.frame_path}/{args.filename[:-5]}/{str(args.frame_id).zfill(5)}.jpeg". For the last code that will be equal to VBIG_dataset/videos_frames/Cusco_Peru_0003018_clip_002/00010.jpeg
 
 
