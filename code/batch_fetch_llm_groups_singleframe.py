@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1', 'p1', 'p2', 'p3', 'p4'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2', 'p1', 'p2', 'p3', 'p4'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
@@ -39,7 +39,6 @@ def main():
     lm = dspy.LM('openai/'+args.model, api_key=args.api_key, api_base=args.api_base, temperature=args.temperature, max_tokens=args.max_tokens)
     dspy.configure(lm=lm)
 
-    os.makedirs(args.model, exist_ok=True)
     dspy_cot, use_direction = get_dspy_cot(args.mode, args.prompt_method)
 
     for current_file in tqdm(collected_files):
@@ -49,31 +48,11 @@ def main():
             #print(current_file)
             with open(current_file, 'r') as f:
                 data = json.load(f)
-    
-            frame_found = False
-            for frame in data['frames']:
-                if frame['frame_id'] == args.frame_id:
-                    frame_found = True
-                    break
-            
-            if not frame_found:
-                print(f"Frame ID {args.frame_id} not found in the data.")
-                return
-    
-    
-            frame_input_data = []
-            personid2bbox = {}
-            for i,det in enumerate(frame['detections']):
-                personid2bbox[det['track_id']] = det['bbox']
-                if use_direction:
-                    frame_input_data.append({'person_id': det['track_id'], 'x': det[args.depth_method][0], 'y': det[args.depth_method][1], 'z': det[args.depth_method][2], 'direction':det['direction']})
-                else:
-                    frame_input_data.append({'person_id': det['track_id'], 'x': det[args.depth_method][0], 'y': det[args.depth_method][1], 'z': det[args.depth_method][2]})
-    
+
+            frame_input_data, personid2bbox = get_frame_bboxes(data, use_direction, args.depth_method, args.frame_id)
+
             save_filename = current_file.split('/')[-1][:-5]
             frame_path = f'{args.frame_path}/{save_filename}/{str(args.frame_id).zfill(5)}.jpeg'
-            #print(frame_path)
-    
             
             if args.mode == 'llm' or args.mode == 'vlm_text':
                 output = inference_wrapper(lm, dspy_cot, frame_input_data, args.mode)
@@ -87,38 +66,8 @@ def main():
             output['frame_id'] = args.frame_id
             output['id_tobbox'] = personid2bbox
     
-            if args.save_image == True:
-                img = cv2.imread(frame_path)
-    
-                if args.prompt_method == 'baseline1' or args.prompt_method == 'baseline2':
-                    for ind, p in enumerate(output['groups']):
-                        for bbox in p:
-                            img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind], 2)
-                else:
-                    for i, group in enumerate(output['groups']):
-                        for person_id in group:
-                            xl, yl, x2, y2 = personid2bbox[person_id]
-                            cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i], 2)
-    
-                # configure this path                
-                res_path = 'results'
-                res_path = os.path.join(res_path, args.model.split('/')[1]+'/'+ args.mode + '/' + args.depth_method+'/'+args.prompt_method, save_filename,)
-                os.makedirs(res_path, exist_ok=True)
-                save_path = os.path.join(res_path, 'result.png')
-                cv2.imwrite(save_path, img)
-    
-                #save output json
-                with open(f'{res_path}/{save_filename}.json', "w") as f:
-                    json.dump(output, f, indent=4)
-            
-            else:
-    
-                res_path = 'results'
-                res_path = os.path.join(res_path, args.model.split('/')[1]+'/'+ args.mode + '/' + args.depth_method+'/'+args.prompt_method, save_filename,)
-                os.makedirs(res_path, exist_ok=True)
-                with open(f'{res_path}/{save_filename}.json', "w") as f:
-                    json.dump(output, f, indent=4)
-             
+            res_path = 'results'
+            save_frame(output, personid2bbox, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method)
    
         except Exception as e:
             print('Fail in:', current_file)
