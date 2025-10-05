@@ -4,30 +4,11 @@ import dspy
 import json
 import argparse
 import pandas as pd
-from constants import CV2_COLORS
 from tqdm.auto import tqdm
 #from prompts import IdentifyGroups, IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive
 #from prompts import IdentifyGroupsImage, IdentifyGroups_DirectionImage, IdentifyGroups_TransitiveImage, IdentifyGroups_DirectionTransitiveImage
 
 from utils import *
-
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Metadata JSON file")
-    parser.add_argument('filename', type=str)
-    parser.add_argument('mode', type=str)
-    parser.add_argument('model', type=str)
-    parser.add_argument('frame_id', type=int)
-    parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2', 'p1', 'p2', 'p3', 'p4'], default='p1')
-    parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
-    parser.add_argument('--api_key', type=str, default="testkey")
-    parser.add_argument('--temperature', type=float, default=0.6)
-    parser.add_argument('--max_tokens', type=int, default=32768)
-    parser.add_argument('--frame_path', type=str, default='VBIG_dataset/videos_frames', help='Path to frame for visualization')
-    parser.add_argument("--save_image", action="store_true", help="Activar modo debug")
-    return parser.parse_args()
 
 def main():
 
