@@ -73,6 +73,7 @@ python3 fetch_groups.py <filename> <setting> <mode> <model> <frame_id> [options]
 ```bash
 python3 fetch_llm_groups_singleframe.py \
   VBIG_dataset/jsons_step5/Cusco_Peru_0003018_clip_002.json \
+  single \
   vlm_image \
   Qwen/Qwen2.5-VL-72B-Instruct \
   10 \
@@ -90,6 +91,7 @@ This command is similar to the previous one just consider that now you send a fo
 ```bash
 python3 batch_fetch_groups.py \
   VBIG_dataset/jsons_step5/ \
+  single \
   vlm_image \
   Qwen/Qwen2.5-VL-72B-Instruct \
   10 \
