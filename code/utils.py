@@ -279,7 +279,8 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
 def parse_args():
     parser = argparse.ArgumentParser(description="Metadata JSON file")
     parser.add_argument('filename', type=str)
-    parser.add_argument('mode', type=str)
+    parser.add_argument('setting', type=str, choices=['single', 'full'])
+    parser.add_argument('mode', type=str, choices=['llm', 'vlm_text', 'vlm_image'])
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
