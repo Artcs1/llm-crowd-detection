@@ -45,13 +45,14 @@ Both scripts support:
 ### Command Syntax (Single frame)
 
 ```bash
-python3 fetch_llm_groups_singleframe.py <filename> <mode> <model> <frame_id> [options]
+python3 fetch_groups.py <filename> <setting> <mode> <model> <frame_id> [options]
 ```
 
 ### Required Arguments
 | Argument   | Type | Description                                    |
 |------------|------|------------------------------------------------|
 | `filename` | str  | Path to JSON file containing metadata          |
+| `mode`     | str  | Setting mode: `single`, `full`                 |
 | `mode`     | str  | Processing mode: `llm`, `vlm_text`, `vlm_image`|
 | `model`    | str  | Name of the model served (typically via vLLM)  |
 | `frame_id` | int  | Frame index to process                         |
@@ -87,7 +88,7 @@ This command is similar to the previous one just consider that now you send a fo
 
 ### Example Usage
 ```bash
-python3 batch_fetch_llm_groups_singleframe.py \
+python3 batch_fetch_groups.py \
   VBIG_dataset/jsons_step5/ \
   vlm_image \
   Qwen/Qwen2.5-VL-72B-Instruct \
@@ -96,33 +97,3 @@ python3 batch_fetch_llm_groups_singleframe.py \
   --save_image
 ```
 
-
-### Command Syntax (Multiple frame)
-Here we sent a only json file. Same previous assumptions about the location of the image/video. Here prompt strategy are only `p1` and `baseline1` (for vlm_image only). Other input variable logic is the same. 
-
-### Example Usage
-```bash
-python3 fetch_llm_groups_full_singleframe.py \
-  VBIG_dataset/jsons_step5/Cusco_Peru_0003018_clip_002.json \
-  vlm_image \
-  Qwen/Qwen2.5-VL-72B-Instruct \
-  10 \
-  --prompt_method p1 \
-  --save_image
-```
-
-
-### Command Syntax (Batch Multiple frame)
-This command is similar to the previous one just consider that now you send a folder that should contain a bunch of .json. Same previous assumptions about the location of the image/video. Here prompt strategy are only `p1` and `baseline1` (for vlm_image only). Other input variable logic is the same. 
-
-
-### Example Usage
-```bash
-python3 batch_fetch_llm_groups_full_singleframe.py \
-  VBIG_dataset/jsons_step5/ \
-  vlm_image \
-  Qwen/Qwen2.5-VL-72B-Instruct \
-  10 \
-  --prompt_method p1 \
-  --save_image
-```
