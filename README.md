@@ -72,7 +72,7 @@ python3 fetch_groups.py <filename> <setting> <mode> <model> <frame_id> [options]
 
 ### Example Usage
 ```bash
-python3 fetch_llm_groups_singleframe.py \
+python3 fetch_groups.py \
   VBIG_dataset/jsons_step5/Cusco_Peru_0003018_clip_002.json \
   single \
   vlm_image \
