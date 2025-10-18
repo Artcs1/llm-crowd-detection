@@ -33,16 +33,14 @@ vllm serve Qwen/Qwen2.5-VL-72B-Instruct --api-key testkey --tensor-parallel-size
 
 ### Main Scripts
 The project includes four main scripts for LLM/VLM experiments:
-- `fetch_llm_groups_singleframe.py` - Process a single frame
-- `batch_fetch_llm_groups_singleframe.py` - Batch processing for a single frame
-- `fetch_llm_groups_full_singleframe.py` - Process the video
-- `batch_fetch_llm_groups_full_singleframe.py` - Batch processing for the whole video
+- `fetch_groups.py` - Process a single frame
+- `batch_fetch_groups.py` - Batch processing for a single frame
 
 Both scripts support:
 - **LLM and VLM modes** (text-only and image modes)
 - **Single frame or full frame processing**
 
-### Command Syntax
+### Command Syntax (Single mode)
 
 ```bash
 python3 fetch_groups.py <filename> <setting> <mode> <model> <frame_id> [options]
@@ -87,7 +85,7 @@ python3 fetch_llm_groups_singleframe.py \
 **Hint**: The code assume that the image is located in "{args.frame_path}/{args.filename[:-5]}/{str(args.frame_id).zfill(5)}.jpeg". For the last example that will be equal to VBIG_dataset/videos_frames/Cusco_Peru_0003018_clip_002/00010.jpeg
 
 
-### Command Syntax 
+### Command Syntax (Batch mode)
 This command is similar to the previous one just consider that now you send a folder that should contain a bunch of .json. Same previous assumptions about the location of the image/video.
 
 ### Example Usage
