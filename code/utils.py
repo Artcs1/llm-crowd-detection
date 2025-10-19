@@ -47,13 +47,15 @@ def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path
         if mode == 'llm' or mode =='vlm_text':
             predictions = dspy_module(all_frames=input_text, target_frame=target_frame)
         if mode == 'vlm_image':
-                
+            limit = len(input_text)
             image = dspy.Image.from_file(frame_path)
             video = []
-            for i in range(0,50,5):
+            for i in range(0,limit,5):
                 img_folder = frame_path[:-10]
                 image_file = f'{img_folder}{str(i+1).zfill(5)}.jpeg'
+                print(image_file)
                 video.append(dspy.Image.from_file(image_file))
+
             predictions = dspy_module(image=image, video=video, all_frames=input_text, target_frame = target_frame)
 
         output = predictions.groups
@@ -174,6 +176,10 @@ def get_full_dspy_cot(mode, prompt_method):
     return (dspy_cot, use_direction)
 
 def get_allframes_bboxes(data, use_direction, depth_method):
+
+    if data['dataset'] == 'JRDB_gold':
+        depth_method = '3D'
+
         
     all_frames, bboxes = [], []
     for frame in data['frames']:
@@ -192,6 +198,9 @@ def get_allframes_bboxes(data, use_direction, depth_method):
 
 
 def get_frame_bboxes(data, use_direction, depth_method, frame_id):
+
+    if data['dataset'] == 'JRDB_gold':
+        depth_method = '3D'
 
     frame_found = False
     for frame in data['frames']:
@@ -222,12 +231,13 @@ def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_
         if prompt_method == 'baseline1' or prompt_method == 'baseline2' :
             for ind, p in enumerate(output['groups']):
                 for bbox in p:
-                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind], 2)
+                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
-                    xl, yl, x2, y2 = personid2bbox[person_id]
-                    cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i], 2)
+                    if person_id in personid2bbox:
+                        xl, yl, x2, y2 = personid2bbox[person_id]
+                        cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
 
         res_path = os.path.join(res_path, model.split('/')[1]+'/'+ mode + '/' + depth_method+'/'+prompt_method, save_filename,)
         os.makedirs(res_path, exist_ok=True)
@@ -252,12 +262,13 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
         if prompt_method == 'baseline1' or prompt_method == 'baseline2' :
             for ind, p in enumerate(output['groups']):
                 for bbox in p:
-                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind], 2)
+                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
-                    xl, yl, x2, y2 = bboxes[frame_id][person_id]
-                    cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i], 2)
+                    if person_id in bboxes[frame_id-1][person_id]:
+                        xl, yl, x2, y2 = bboxes[frame_id-1][person_id]
+                        cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
 
         # configure this path                
         res_path = os.path.join(res_path, model.split('/')[1]+'/'+ mode + '/' + depth_method+'/'+prompt_method, save_filename,)

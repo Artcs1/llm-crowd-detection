@@ -59,7 +59,7 @@ def main():
                 res_path = 'results'
                 save_frame(output, personid2bbox, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method)
             elif args.setting == 'full':
-                output['id_tobbox'] = bboxes[args.frame_id]
+                output['id_tobbox'] = bboxes[args.frame_id-1]
                 res_path = 'results_full'
                 save_full_frame(output, bboxes, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method, args.frame_id)
         
