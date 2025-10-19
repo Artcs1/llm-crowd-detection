@@ -266,7 +266,7 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
-                    if person_id in bboxes[frame_id-1][person_id]:
+                    if person_id in bboxes[frame_id-1]:
                         xl, yl, x2, y2 = bboxes[frame_id-1][person_id]
                         cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
 
