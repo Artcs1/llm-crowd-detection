@@ -41,7 +41,7 @@ class IdentifyGroups_AllFrames(dspy.Signature):
         desc="List of frames, where each frame is a list of people detections. Each detection is a dict with keys: 'person_id', 'x', 'y', 'z'. Total ~50 frames."
     )
     target_frame: int = dspy.InputField(
-        desc="The (1-based) index of the frame for which groups should be computed."
+        desc="The 1-based index of the frame for which the groups should be computed."
     )
     groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together in the target frame, inferred using spatial and temporal context from all frames.")
 
@@ -260,4 +260,68 @@ class vlm_IdentifyGroups_AllFramesImage(dspy.Signature):
 #     """"Identify sets of people that are very close to each other from the given 3D coordinates. Use all three coordinates in distance calculation. Select an appropriate grouping threshold based on all pairwise distances. Groups of people should follow the same direction. Do not hallucinate empty sets."""
 #     detections: list[dict] = dspy.InputField(desc="list of dictionary objects with the keys: person_id, direction, x, y, z.")
 #     groups: list[list[int]] = dspy.OutputField(desc="A list of lists with person_ids of people grouped together.")
+
+
+class IdentifyGroups_Last5Frames(dspy.Signature):
+    """Given detections of people with their 3D positions across past five frames of a video, compute groups of people who are close together in the specified target frame. Use spatial information from all frames as context — for example, to infer stable group memberships even if people temporarily move apart or come closer. Compute pairwise distances between people in the target frame and choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if they are spatially close and consistently remain close across frames. Return only non-empty groups. Do not merge distant people into the same group. Do not hallucinate non-existent person_id."""
+    past_frames: list[list[dict]] = dspy.InputField(
+        desc="List of five frames, where each frame is a list of people detections. Each detection is a dict with keys: 'person_id', 'x', 'y', 'z'."
+    )
+    target_frame: dict = dspy.InputField(
+        desc="Target frame with a list of people detections. Each detection is a dict with keys: 'person_id', 'x', 'y', 'z'."
+    )
+    groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together in the target frame, inferred using spatial and temporal context from all frames.")
+
+
+# class RecognizeGroupActivity_MultiGroup(dspy.Signature):
+#     """Given an image with multiple people and the 2D coordinates of bounding boxes enclosing different subsets of them, name the activity (or activities) that people inside each bounding box are engaged in. Consider their poses, interactions, and any objects they might be using."""
+#     image: dspy.Image = dspy.InputField(desc="Image with people")
+#     bbox: list[list[int]] = dspy.InputField(desc="List of bounding boxes around groups of people, each in top-left and bottom-right notation: [x1, y1, x2, y2]")
+#     activity: list[list[str]] = dspy.OutputField(desc="Name of one or more activities that people inside each bounding box are engaged in.")
+
+
+class RecognizeGroupActivity(dspy.Signature):
+    """Given an image with multiple people and the 2D coordinates of a bounding box enclosing a subset of them, name the activity (or activities) that people inside the bounding box are engaged in. Consider their poses, interactions, and any objects they might be using."""
+    image: dspy.Image = dspy.InputField(desc="Image with people")
+    bbox: list[int] = dspy.InputField(desc="Bounding box around a group of people, in top-left and bottom-right notation: [x1, y1, x2, y2]")
+    output: list[str] = dspy.OutputField(desc="Name of one or more activities that people inside the bounding box are engaged in.")
+
+
+class RecognizeGroupClothing(dspy.Signature):
+    """Given an image with multiple people and the 2D coordinates of a bounding box enclosing a subset of them, name the clothing and accessories that people inside the bounding box are wearing."""
+    image: dspy.Image = dspy.InputField(desc="Image with people")
+    bbox: list[int] = dspy.InputField(desc="Bounding box around a group of people, in top-left and bottom-right notation: [x1, y1, x2, y2]")
+    output: list[str] = dspy.OutputField(desc="Name of one or more clothing and accessories that people inside the bounding box are wearing.")
+
+
+class RecognizeGroupHandholding(dspy.Signature):
+    """Given an image with multiple people and the 2D coordinates of a bounding box enclosing a subset of them, answer if they are holding hands."""
+    image: dspy.Image = dspy.InputField(desc="Image with people")
+    bbox: list[int] = dspy.InputField(desc="Bounding box around a group of people, in top-left and bottom-right notation: [x1, y1, x2, y2]")
+    output: bool = dspy.OutputField(desc="True or False, answer if they are holding hands.")
+
+
+# class RecognizeGroupActivity_SingleGroup_ImgOnly(dspy.Signature):
+#     """Given an image with multiple people and a bounding box drawn around a subset of them, name the activity (or activities) that people inside the bounding box are engaged in. Consider their poses, interactions, and any objects they might be using."""
+#     image: dspy.Image = dspy.InputField(desc="Image with people and a bounding box surrounding a group")
+#     activity: list[str] = dspy.OutputField(desc="Name of one or more activities that people inside the bounding box are engaged in.")
+
+
+# class RecognizeGroupClothing_SingleGroup_ImgOnly(dspy.Signature):
+#     """Given an image with multiple people and a bounding box drawn around a subset of them, name the clothing that people inside the bounding box are engaged in."""
+#     image: dspy.Image = dspy.InputField(desc="Image with people and a bounding box surrounding a group")
+#     activity: list[str] = dspy.OutputField(desc="Name the clothing that people inside the bounding box are wearing.")
+    
+
+# class RecognizeGroupHandHolding_SingleGroup_ImgOnly(dspy.Signature):
+#     """Given an image with multiple people and a bounding box drawn around a subset of them, answer if they are holding hands."""
+#     image: dspy.Image = dspy.InputField(desc="Image with people and a bounding box surrounding a group")
+#     activity: bool = dspy.OutputField(desc="True or False, answer if they are holding hands.")
+
+    
+# class RecognizeGroupActivity_MultiGroup_ImgOnly(dspy.Signature):
+#     """Given an image with multiple people and bounding boxes drawn around a different subsets of them, name the activity (or activities) that people inside each bounding box are engaged in. Consider their poses, interactions, and any objects they might be using."""
+#     image: dspy.Image = dspy.InputField(desc="Image with people and bounding boxes surrounding a group")
+#     activity: list[list[str]] = dspy.OutputField(desc="Name of one or more activities that people inside each bounding box are engaged in.")
+
 

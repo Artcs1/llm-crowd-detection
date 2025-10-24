@@ -276,6 +276,14 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
         with open(f'{res_path}/{save_filename}.json', "w") as f:
             json.dump(output, f, indent=4)
 
+
+def save_json(data, res_path, save_filename, model, mode, depth_method, prompt_method):
+    res_path = os.path.join(res_path, model.split('/')[1]+'/'+ mode + '/'+ depth_method+'/'+prompt_method, save_filename,)
+    os.makedirs(res_path, exist_ok=True)
+    with open(f'{res_path}/{save_filename}.json', "w") as f:
+        json.dump(data, f, indent=4)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Metadata JSON file")
     parser.add_argument('filename', type=str)
@@ -294,3 +302,84 @@ def parse_args():
     return parser.parse_args()
 
 
+def parse_numbers(s):
+    numbers = []
+    
+    if ':' in s:
+        parts = s.split(':')
+        if len(parts) == 2:
+            start, end = map(int, parts)
+            numbers.extend(range(start, end + 1))
+        elif len(parts) == 3:
+            start, end, step = map(int, parts)
+            numbers.extend(range(start, end + 1, step))
+    else:
+        parts = s.split(',')
+        for part in parts:
+            if '-' in part:
+                low, high = map(int, part.split('-'))
+                numbers.extend(range(low, high + 1))
+            else:
+                numbers.append(int(part))
+    return numbers
+
+
+def parse_args_allframes():
+    parser = argparse.ArgumentParser(description="Metadata JSON file")
+    parser.add_argument('filename', type=str)
+    parser.add_argument('setting', type=str, choices=['single', 'full'])
+    parser.add_argument('mode', type=str, choices=['llm', 'vlm_text', 'vlm_image'])
+    parser.add_argument('model', type=str)
+    # parser.add_argument('frame_id', type=int)
+    parser.add_argument(
+        "--frame_ids",
+        type=parse_numbers,
+        required=True,
+        help="Comma-separated numbers or ranges, e.g. 1,2,5-7,10"
+    )
+    parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4'], default='p1')
+    parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
+    parser.add_argument('--api_key', type=str, default="testkey")
+    parser.add_argument('--temperature', type=float, default=0.6)
+    parser.add_argument('--max_tokens', type=int, default=32768)
+    parser.add_argument('--frame_path', type=str, default='VBIG_dataset/videos_frames', help='Path to frame for visualization')
+    # parser.add_argument("--save_image", action="store_true", help="Save Image")
+    return parser.parse_args()
+
+
+def parse_args_cultural_tasks():
+    parser = argparse.ArgumentParser(description="Inference")
+    parser.add_argument('filename', type=str, description='Path to JSON file with groups')
+    parser.add_argument('setting', type=str, choices=['single', 'all'])
+    parser.add_argument('model', type=str)
+    parser.add_argument(
+        "--frame_ids",
+        type=parse_numbers,
+        required=False,
+        help="Comma-separated numbers or ranges, e.g. 1,2,5-7,10 or 0:51 or 0:51:15"
+    )
+    parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
+    parser.add_argument('--api_key', type=str, default="testkey")
+    parser.add_argument('--temperature', type=float, default=0.6)
+    parser.add_argument('--max_tokens', type=int, default=32768)
+    parser.add_argument('--frame_path', type=str, default='VBIG_dataset/videos_frames', help='Path to frame for visualization')
+    return parser.parse_args()
+
+
+def compute_group_bbox(groups, id_to_bbox):
+    gboxes = []
+    for _, group in enumerate(groups):
+        g_xmin, g_ymin, g_max, g_ymax = -1, -1, -1, -1
+        for person in group:
+            xmin, ymin, xmax, ymax = id_to_bbox[str(person)]
+            if g_xmin == -1 or xmin < g_xmin:
+                g_xmin = xmin
+            if g_ymin == -1 or ymin < g_ymin:
+                g_ymin = ymin
+            if g_max == -1 or xmax > g_max:
+                g_max = xmax
+            if g_ymax == -1 or ymax > g_ymax:
+                g_ymax = ymax
+        gboxes.append([g_xmin, g_ymin, g_max, g_ymax])
+    return gboxes
