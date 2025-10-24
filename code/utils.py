@@ -335,7 +335,7 @@ def parse_args_allframes():
         "--frame_ids",
         type=parse_numbers,
         required=True,
-        help="Comma-separated numbers or ranges, e.g. 1,2,5-7,10"
+        help="Comma-separated numbers or ranges, e.g. 1,2,5-7,10 or 0:51 or 0:51:15"
     )
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
     parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4'], default='p1')
