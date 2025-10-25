@@ -1,10 +1,5 @@
-import cv2
-import os
 import dspy
 import json
-import argparse
-import pandas as pd
-from tqdm.auto import tqdm
 
 
 from utils import *
@@ -35,7 +30,7 @@ def main():
     save_filename = args.filename.split('/')[-1][:-5]
     frameid_to_path = {}
     for frame_id in args.frame_ids:
-        frame_path = f'{args.frame_path}/{save_filename}/{str(args.frame_id).zfill(5)}.jpeg'
+        frame_path = f'{args.frame_path}/{save_filename}/{str(frame_id).zfill(5)}.jpeg'
         frameid_to_path[frame_id] = frame_path
 
     if args.setting == 'single':
@@ -69,6 +64,9 @@ def main():
     res_json = {}
     res_json['frame_ids'] = args.frame_ids
     res_json['outputs'] = frameid_to_output
+    res_json['city'] = data['city']
+    res_json['country'] = data['country']
+    res_json['dataset'] = data['dataset']
 
     if args.setting == 'single':
         res_path = 'results'

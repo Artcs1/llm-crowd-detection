@@ -3,8 +3,6 @@ import os
 import dspy
 import json
 import argparse
-import pandas as pd
-from tqdm.auto import tqdm
 
 from prompts import IdentifyGroups, IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive
 from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, vlm_IdentifyGroups_DirectionImage, vlm_IdentifyGroups_TransitiveImage, vlm_IdentifyGroups_DirectionTransitiveImage, baseline2
