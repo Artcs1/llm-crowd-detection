@@ -75,7 +75,7 @@ def full_inference_wrapper(lm, dspy_module, input_text, target_frame, mode='llm'
         res['groups'] = output
         res['error'] = None
     else:
-        res['hist'] = str(lm.history[-1])
+        res['hist'] = str(lm.history[-1]) if len(lm.history) > 0 else ''
         res['groups'] = None
         res['error'] = output
     return res 
@@ -105,7 +105,7 @@ def inference_wrapper(lm, dspy_module, input_text, mode='llm', image_path='optio
         res['groups'] = output
         res['error'] = None
     else:
-        res['hist'] = str(lm.history[-1])
+        res['hist'] = str(lm.history[-1]) if len(lm.history) > 0 else ''
         res['groups'] = None
         res['error'] = output
     return res 
