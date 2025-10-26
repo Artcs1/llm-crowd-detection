@@ -11,8 +11,9 @@ frame_path="../../JRDB/videos_frames/"
 frame_id=15
 
 types=("single" "full")
-modes=("vlm_text" "vlm_image")
-prompts=("p3" "p1" "baseline1" "baseline2")
+modes=("llm")
+#modes=("vlm_text" "vlm_image")
+prompts=("p3" "p1")# "baseline1" "baseline2")
 
 for type in "${types[@]}"; do
   for mode in "${modes[@]}"; do
