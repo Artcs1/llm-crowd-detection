@@ -12,11 +12,18 @@ frame_id=15
 
 types=("single" "full")
 modes=("llm")
-#modes=("vlm_text" "vlm_image")
-prompts=("p3" "p1")# "baseline1" "baseline2")
+#modes=("vlm_image" "vlm_text")
+prompts=("p1" "p3" "baseline1" "baseline2")
 
 for type in "${types[@]}"; do
   for mode in "${modes[@]}"; do
+    
+    if [[ "$mode" == "llm" or "$mode" == "vlm_text"]]; then
+      prompts=("p1" "p3")
+    else
+      propmts=("p1" "p3" "baseline1" "baseline2")
+    fi
+
     for prompt in "${prompts[@]}"; do
       # Skip p3 for full type
       if [[ "$type" == "full" && "$prompt" == "p3" ]]; then

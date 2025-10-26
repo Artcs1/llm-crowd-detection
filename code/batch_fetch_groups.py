@@ -16,9 +16,9 @@ def main():
     args = parse_args()
 
     collected_files = [os.path.join(args.filename,f) for f in os.listdir(args.filename) if os.path.isfile(os.path.join(args.filename, f))]
+    collected_files.sort()
 
     for current_file in tqdm(collected_files):
-
         try:
             with open(current_file, 'r') as f:
                 data = json.load(f)
