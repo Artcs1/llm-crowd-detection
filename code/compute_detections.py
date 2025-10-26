@@ -12,7 +12,8 @@ args = parser.parse_args()
 
 base_dir = "/home/jeffri/Desktop/llm-crowd-detection/code"
 
-
+H = 480
+W = 3760
 
 results_folder = "results" if args.mode == "single" else f"results_{args.mode}"
 
@@ -30,7 +31,7 @@ files = glob.glob(path)
 files.sort()
 
 scenarios = set()
-det_file = f"{results_folder}_{args.model}_{args.vlm_mode}_3D_{args.prompt_method}.txt"
+det_file = f"detection_files/{results_folder}_{args.model}_{args.vlm_mode}_3D_{args.prompt_method}.txt"
 
 if os.path.exists(det_file):
     os.remove(det_file)
@@ -54,6 +55,8 @@ for ind, file in enumerate(files):
     int_img = (number+1)*15
     lvl= 1
     group_id = 1
+
+
     if 'baseline' in args.prompt_method:
         groups = data['groups']
         for group in groups:
@@ -62,12 +65,13 @@ for ind, file in enumerate(files):
                     x1, y1, x2, y2 = person
                     if x1 == x2 or y1 == y2:
                         continue
-                    PRED_list = [idx, int_img, x1, y1, x2, y2, group_id, dc, lvl]
-                    str_to_be_added = [str(k) for k in PRED_list]
-                    str_to_be_added = (" ".join(str_to_be_added))
-                    f = open(det_file, "a+")
-                    f.write(str_to_be_added + "\r\n")
-                    f.close()
+                    if x1>=0 and x2<=W and y1>=0 and y2<=H:
+                        PRED_list = [idx, int_img, min(x1,x2), min(y1,y2), max(x1,x2), max(y1,y2), group_id, dc, lvl]
+                        str_to_be_added = [str(k) for k in PRED_list]
+                        str_to_be_added = (" ".join(str_to_be_added))
+                        f = open(det_file, "a+")
+                        f.write(str_to_be_added + "\r\n")
+                        f.close()
             group_id+=1
         
     else:    
