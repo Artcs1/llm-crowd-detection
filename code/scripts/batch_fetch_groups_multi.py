@@ -28,8 +28,9 @@ for setting in settings:
                     '--frame_ids', '1,25,50',
                     '--depth_method', depth_method,
                     '--prompt_method', prompt_method,
-                    '--frame_path', video_dir
+                    '--frame_path', video_dir,
+                    '--max_tokens', '24000',
                 ]
                 
-                print(f'Running command: {" ".join(cmd)}')
+                # print(f'Running command: {" ".join(cmd)}')
                 subprocess.run(cmd)
