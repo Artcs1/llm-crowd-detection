@@ -12,7 +12,7 @@ files = [os.path.join(json_dir, f) for f in os.listdir(json_dir) if os.path.isfi
 
 depth_methods = ['naive_3D_60FOV', 'unidepth_3D', 'detany_3D']
 prompt_methods = ['p1', 'p2', 'p3', 'p4']
-settings = ['single', 'full']
+settings = ['single']
 
 for setting in settings:
     for file in tqdm(files):

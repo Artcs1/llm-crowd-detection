@@ -301,6 +301,11 @@ class RecognizeGroupHandholding(dspy.Signature):
     output: bool = dspy.OutputField(desc="True or False, answer if they are holding hands.")
 
 
+class RecognizeGroupHugging(dspy.Signature):
+    """Given an image with multiple people and the 2D coordinates of a bounding box enclosing a subset of them, answer if they are hugging or holding each other."""
+    image: dspy.Image = dspy.InputField(desc="Image with people")
+    bbox: list[int] = dspy.InputField(desc="Bounding box around a group of people, in top-left and bottom-right notation: [x1, y1, x2, y2]")
+    output: bool = dspy.OutputField(desc="True or False, answer if they are hugging or holding each other.")
 # class RecognizeGroupActivity_SingleGroup_ImgOnly(dspy.Signature):
 #     """Given an image with multiple people and a bounding box drawn around a subset of them, name the activity (or activities) that people inside the bounding box are engaged in. Consider their poses, interactions, and any objects they might be using."""
 #     image: dspy.Image = dspy.InputField(desc="Image with people and a bounding box surrounding a group")

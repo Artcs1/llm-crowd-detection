@@ -357,10 +357,10 @@ def parse_args_allframes():
     return parser.parse_args()
 
 
-def parse_args_cultural_tasks():
+def parse_args_inference_tasks():
     parser = argparse.ArgumentParser(description="Inference")
-    parser.add_argument('filename', type=str, description='Path to JSON file with groups')
-    parser.add_argument('setting', type=str, choices=['single', 'all'])
+    parser.add_argument('filename', type=str, help='Path to JSON file with groups')
+    # parser.add_argument('setting', type=str, choices=['single', 'all'])
     parser.add_argument('model', type=str)
     parser.add_argument(
         "--frame_ids",
@@ -376,8 +376,9 @@ def parse_args_cultural_tasks():
     return parser.parse_args()
 
 
-def compute_group_bbox(groups, id_to_bbox):
+def compute_group_bbox(groups, id_to_bbox, return_counts=False):
     gboxes = []
+    counts = []
     for _, group in enumerate(groups):
         g_xmin, g_ymin, g_max, g_ymax = -1, -1, -1, -1
         for person in group:
@@ -391,4 +392,8 @@ def compute_group_bbox(groups, id_to_bbox):
             if g_ymax == -1 or ymax > g_ymax:
                 g_ymax = ymax
         gboxes.append([g_xmin, g_ymin, g_max, g_ymax])
-    return gboxes
+        counts.append(len(group))
+    if return_counts:
+        return gboxes, counts
+    else:
+        return gboxes
