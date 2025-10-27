@@ -1,16 +1,22 @@
 #!/bin/bash
 
-#!/bin/bash
-
 modes=("single" "full")
-prompt_methods=("p1" "p3" "baseline1" "baseline2")
+#prompt_methods=("p1" "p3" "baseline1" "baseline2")
+prompt_methods=("p1" "p3")
 models=(
-  "Qwen2.5-VL-72B-Instruct"
-  "Qwen2.5-VL-32B-Instruct"
-  "Qwen2.5-VL-7B-Instruct"
-  "Qwen2.5-VL-3B-Instruct"
+  "Qwen2.5-72B-Instruct"
+  "Qwen2.5-32B-Instruct"
+  "Qwen2.5-7B-Instruct"
+  "Qwen2.5-3B-Instruct"
 )
-vlm_modes=("vlm_text" "vlm_image")
+#models=(
+#  "Qwen2.5-VL-72B-Instruct"
+#  "Qwen2.5-VL-32B-Instruct"
+#  "Qwen2.5-VL-7B-Instruct"
+#  "Qwen2.5-VL-3B-Instruct"
+#)
+vlm_modes=("llm")
+#vlm_modes=("vlm_text" "vlm_image")
 
 
 for model in "${models[@]}"; do

@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser(description="Select mode, prompt method, model,
 parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
 parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p2","p3","p4"], required=True, help="Prompt method")
 parser.add_argument("--model", type=str, required=True, help="Specify the model name or path")
-parser.add_argument("--vlm_mode", type=str, choices=["vlm_image","vlm_text"], required=True, help="VLM mode: image or text")
+parser.add_argument("--vlm_mode", type=str, choices=["llm","vlm_image","vlm_text"], required=True, help="VLM mode: image or text")
 args = parser.parse_args()
 
 base_dir = "/home/jeffri/Desktop/llm-crowd-detection/code"
@@ -32,6 +32,9 @@ files.sort()
 
 scenarios = set()
 det_file = f"detection_files/{results_folder}_{args.model}_{args.vlm_mode}_3D_{args.prompt_method}.txt"
+
+if not os.path.exists(det_file.split('/')[0]):
+    os.makedirs(det_file.split('/')[0])
 
 if os.path.exists(det_file):
     os.remove(det_file)
