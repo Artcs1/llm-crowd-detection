@@ -10,7 +10,7 @@ parser.add_argument("--model", type=str, required=True, help="Specify the model 
 parser.add_argument("--vlm_mode", type=str, choices=["llm","vlm_image","vlm_text"], required=True, help="VLM mode: image or text")
 args = parser.parse_args()
 
-base_dir = "/home/jeffri/Desktop/llm-crowd-detection/code"
+base_dir = "/home/artcs1/Desktop/llm-crowd-detection/code"
 
 H = 480
 W = 3760
@@ -28,7 +28,9 @@ path = os.path.join(
 )
 
 files = glob.glob(path)
+print(path)
 files.sort()
+print(len(files))
 
 scenarios = set()
 det_file = f"detection_files/{results_folder}_{args.model}_{args.vlm_mode}_3D_{args.prompt_method}.txt"

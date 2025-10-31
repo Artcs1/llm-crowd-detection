@@ -12,8 +12,8 @@ from utils import *
 
 def main():
 
-
     args = parse_args()
+
     with open(args.filename, 'r') as f:
         data = json.load(f)
 

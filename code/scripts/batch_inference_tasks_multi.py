@@ -16,7 +16,7 @@ for file in tqdm(files):
         'python', 'code/inference_tasks_multi.py',
         file,
         model,
-        '--frame_ids', '1,25,50',
+        '--frame_ids', '1',
         '--frame_path', video_dir,
         '--max_tokens', '24000',
     ]

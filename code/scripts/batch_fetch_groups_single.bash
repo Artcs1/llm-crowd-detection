@@ -11,17 +11,17 @@ frame_path="../../JRDB/videos_frames/"
 frame_id=15
 
 types=("single" "full")
-modes=("llm")
-#modes=("vlm_image" "vlm_text")
-prompts=("p1" "p3" "baseline1" "baseline2")
-
+#modes=("llm")
+modes=("vlm_image" "vlm_text")
+prompts=("p1" "p3")
+#prompts=("p1" "p3" "baseline1" "baseline2")
 for type in "${types[@]}"; do
   for mode in "${modes[@]}"; do
     
     if [[ "$mode" == "llm" || "$mode" == "vlm_text" ]]; then
       prompts=("p1" "p3")
     else
-      prompts=("p1" "p3" "baseline1" "baseline2")
+      prompts=("p1" "p3")
     fi
 
     for prompt in "${prompts[@]}"; do
