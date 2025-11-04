@@ -193,6 +193,34 @@ def get_allframes_bboxes(data, use_direction, depth_method):
 
     return (all_frames, bboxes)
 
+def get_allframes_bboxes2(data, use_direction, depth_method):
+
+    if data['dataset'] == 'JRDB_gold':
+        depth_method = '3D'
+
+        
+    all_frames, bboxes = [], []
+    for idx, frame in enumerate(data['frames']):
+        if (idx+1) % 5 == 0:
+            frame_input_data = []
+            personid2bbox = {}
+            for i,det in enumerate(frame['detections']):
+                personid2bbox[det['track_id']] = det['bbox']
+                if use_direction:
+                    frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2], 'direction':det['direction']})
+                else:
+                    frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2]})
+        else:
+            frame_input_data = []
+            personid2bbox = {}
+
+        all_frames.append(frame_input_data)
+        bboxes.append(personid2bbox)
+
+    return (all_frames, bboxes)
+
+
+
 
 def get_frame_bboxes(data, use_direction, depth_method, frame_id):
 

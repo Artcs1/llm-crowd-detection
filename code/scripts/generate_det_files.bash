@@ -1,9 +1,14 @@
 #!/bin/bash
 
+
+dataset=$1
+output_mode=$2
+
 modes=("single" "full")
 prompt_methods=("p1" "p3" "baseline1" "baseline2")
+depth_methods=("naive_3D_60FOV" "unidepth_3D" "detany_3D")
 #prompt_methods=("p1" "p3")
-vlm_modes=("llm" "vlm_text" "vlm_image")
+vlm_modes=("vlm_image" "vlm_text" "llm")
 models=("")
 
 for vlm_mode in "${vlm_modes[@]}"; do
@@ -23,12 +28,18 @@ for vlm_mode in "${vlm_modes[@]}"; do
         if [[ "$mode" == "full" && "$prompt_method" == "p3" ]]; then
           continue
         fi
-        echo "Running: $model | $prompt_method | $mode | $vlm_mode"
-        python3 compute_detections.py \
-          --mode "$mode" \
-          --prompt_method "$prompt_method" \
-          --model "$model" \
-          --vlm_mode "$vlm_mode"
+
+       	for depth_method in "${depth_methods[@]}"; do	
+	  echo "Running: $model | $prompt_method | $mode | $vlm_mode| $depth_method"
+          python3 compute_detections.py \
+	    --depth_method "$depth_method" \
+	    --dataset "$dataset" \
+            --mode "$mode" \
+            --prompt_method "$prompt_method" \
+            --model "$model" \
+            --vlm_mode "$vlm_mode" \
+	    --output_mode "$output_mode"
+	done
       done
     done
   done
