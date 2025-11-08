@@ -193,6 +193,34 @@ def get_allframes_bboxes(data, use_direction, depth_method):
 
     return (all_frames, bboxes)
 
+def get_allframes_bboxes2(data, use_direction, depth_method):
+
+    if data['dataset'] == 'JRDB_gold':
+        depth_method = '3D'
+
+        
+    all_frames, bboxes = [], []
+    for idx, frame in enumerate(data['frames']):
+        if (idx+1) % 5 == 0:
+            frame_input_data = []
+            personid2bbox = {}
+            for i,det in enumerate(frame['detections']):
+                personid2bbox[det['track_id']] = det['bbox']
+                if use_direction:
+                    frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2], 'direction':det['direction']})
+                else:
+                    frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2]})
+        else:
+            frame_input_data = []
+            personid2bbox = {}
+
+        all_frames.append(frame_input_data)
+        bboxes.append(personid2bbox)
+
+    return (all_frames, bboxes)
+
+
+
 
 def get_frame_bboxes(data, use_direction, depth_method, frame_id):
 
@@ -270,7 +298,7 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
                     if str(person_id) in bboxes[frame_id-1]:
                         xl, yl, x2, y2 = bboxes[frame_id-1][str(person_id)]
                         cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
-                    if str(person_id) in bboxes[frame_id-1]:
+                    if person_id in bboxes[frame_id-1]:
                         xl, yl, x2, y2 = bboxes[frame_id-1][person_id]
                         cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
 
@@ -354,7 +382,7 @@ def parse_args_allframes():
     )
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
     parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4'], default='p1')
-    parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
+    parser.add_argument('--api_base', type=str, default="http://localhost:8010/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
     parser.add_argument('--max_tokens', type=int, default=24000)
@@ -374,7 +402,7 @@ def parse_args_inference_tasks():
         required=False,
         help="Comma-separated numbers or ranges, e.g. 1,2,5-7,10 or 0:51 or 0:51:15"
     )
-    parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
+    parser.add_argument('--api_base', type=str, default="http://localhost:8010/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
     parser.add_argument('--max_tokens', type=int, default=24000)
@@ -388,6 +416,8 @@ def compute_group_bbox(groups, id_to_bbox, return_counts=False):
     for _, group in enumerate(groups):
         g_xmin, g_ymin, g_max, g_ymax = -1, -1, -1, -1
         for person in group:
+            if str(person) not in id_to_bbox:
+                continue
             xmin, ymin, xmax, ymax = id_to_bbox[str(person)]
             if g_xmin == -1 or xmin < g_xmin:
                 g_xmin = xmin
