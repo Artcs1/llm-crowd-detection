@@ -61,12 +61,13 @@ def main():
 
 
     save_dir = args.filename
-    save_dir = '/'.join(save_dir.split('/')[:-2]).replace('results', 'results_cultural')
+    save_dir_parts = save_dir.split('/')[:-2]
+    save_dir_parts[-4] = args.model
+    save_dir = '/'.join(save_dir_parts).replace('results', 'results_cultural')
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, f'{args.filename.split("/")[-1][:-5]}.json')
     with open(save_path, 'w') as f:
         json.dump(res_json, f, indent=4)
-    print(f'Saved results to {save_path}')
 
 
 if __name__ == '__main__':
