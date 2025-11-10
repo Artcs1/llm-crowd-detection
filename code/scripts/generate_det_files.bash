@@ -5,7 +5,7 @@ dataset=$1
 output_mode=$2
 
 modes=("single" "full")
-prompt_methods=("p1" "p3" "baseline1" "baseline2")
+prompt_methods=("p1" "p2" "p3" "p4" "p5" "baseline1" "baseline2")
 depth_methods=("naive_3D_60FOV" "unidepth_3D" "detany_3D")
 #prompt_methods=("p1" "p3")
 vlm_modes=("vlm_image" "vlm_text" "llm")
@@ -25,10 +25,9 @@ for vlm_mode in "${vlm_modes[@]}"; do
           continue
         fi
         # skip p3 for full mode
-        if [[ "$mode" == "full" && "$prompt_method" == "p3" ]]; then
+	if [[ "$mode" == "full" && ( "$prompt_method" == "p2" || "$prompt_method" == "p3" || "$prompt_method" == "p4" || "$prompt_method" == "p5" ) ]]; then
           continue
         fi
-
        	for depth_method in "${depth_methods[@]}"; do	
 	  echo "Running: $model | $prompt_method | $mode | $vlm_mode| $depth_method"
           python3 compute_detections.py \

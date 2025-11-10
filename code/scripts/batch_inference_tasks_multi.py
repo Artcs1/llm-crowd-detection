@@ -39,7 +39,7 @@ for file in tqdm(files):
         model,
         '--frame_ids', '1',
         '--frame_path', video_dir,
-        '--max_tokens', '24000',
+        '--max_tokens', '3000',
         '--api_base', args.api_base,
         '--api_key', args.api_key
     ]

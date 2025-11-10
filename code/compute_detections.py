@@ -4,7 +4,7 @@ import os
 import argparse
 
 def add_prediction(det_file, idx, int_img, x1, y1, x2, y2, group_id, dc, lvl):
-
+    
     PRED_list = [idx, int_img, x1, y1, x2, y2, group_id, dc, lvl]
     str_to_be_added = [str(k) for k in PRED_list]
     str_to_be_added = (" ".join(str_to_be_added))
@@ -15,10 +15,10 @@ def add_prediction(det_file, idx, int_img, x1, y1, x2, y2, group_id, dc, lvl):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select mode, prompt method, model, and VLM mode")
-    parser.add_argument("--dataset", type=str, choices=["JRDB","BLENDER","SEKAI_OURS"], required=True, help="Dataset options")
+    parser.add_argument("--dataset", type=str, choices=["JRDB_gold","JRDB","BLENDER","SEKAI_OURS"], required=True, help="Dataset options")
     parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
     parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D"], default="naive_3D_60FOV", help="Depth method")
-    parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p2","p3","p4"], required=True, help="Prompt method")
+    parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p2","p3","p4","p5"], required=True, help="Prompt method")
     parser.add_argument("--model", type=str, required=True, help="Specify the model name or path")
     parser.add_argument("--vlm_mode", type=str, choices=["llm","vlm_image","vlm_text"], required=True, help="VLM mode: image or text")
     parser.add_argument("--output_mode", type=str, choices=["finegrained","coarse"], default="finegrained", help="Formatting the output")
@@ -28,6 +28,8 @@ if __name__ == '__main__':
     base_dir = "/home/artcs1/Desktop/llm-crowd-detection/code"
     
     if args.dataset == 'JRDB':
+        H, W = 480, 3760
+    if args.dataset == 'JRDB_gold':
         H, W = 480, 3760
     elif args.dataset == 'BLENDER':
         H, W = 3240, 3240
@@ -71,10 +73,15 @@ if __name__ == '__main__':
             data = json.load(f)
     
         scenario       = last[-1]
-        split_scenario = scenario.split('_')
-        orig_scenario  = "".join(split_scenario[:-1]) 
-        scenarios.add(orig_scenario)
-        number   = int(split_scenario[-1])
+
+        if args.dataset == 'SEKAI_OURS':
+            scenarios.add(scenario)
+            number   = 0 # int(split_scenario[-1])
+        else:
+            split_scenario = scenario.split('_')
+            orig_scenario  = "".join(split_scenario[:-1]) 
+            number   = int(split_scenario[-1])
+            scenarios.add(orig_scenario)
     
         dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*15, 1, 1
     
@@ -88,7 +95,7 @@ if __name__ == '__main__':
                     xmin, ymin,xmax, ymax = W+H,W+H,0,0
                     for person in group:
                         if len(person) == 4:
-                            x1, y1, x2, y2 = person
+                            x1, y1, x2, y2 = min(person[0], person[2]), min(person[1], person[3]),max(person[0], person[2]),max(person[1], person[3])
                             if x1 == x2 or y1 == y2:
                                 continue
                             if x1>=0 and x2<=W and y1>=0 and y2<=H:
@@ -115,6 +122,7 @@ if __name__ == '__main__':
         else:    
             groups          = data['groups']
             personid2bbox   = data['id_tobbox']
+            #print(personid2bbox)
 
             if args.output_mode == 'coarse':
                 all_persons = set()

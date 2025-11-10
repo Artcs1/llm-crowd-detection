@@ -132,6 +132,12 @@ class vlm_IdentifyGroups_DirectionTransitiveImage(dspy.Signature):
     detections: list[dict] = dspy.InputField(desc="List of people, where each dictionary has keys: 'person_id', 'x', 'y', 'z', 'direction'.")
     groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids that are close together.")
 
+class vlm_IdentifyGroups2DImage(dspy.Signature):
+    """Given a list of people with their 2D bounding-box center's positions, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances (e.g., a natural gap or a small percentile that separates close points from distant ones). People belong to the same group if they are connected by pairwise distances below this threshold (transitively include people: if A is close to B and B is close to C, all three should be in the same group). Return only non-empty groups. Do not merge distant people into the same group."""
+    image: dspy.Image = dspy.InputField(desc="Image with people to group")
+    detections: list[dict] = dspy.InputField(desc="list of dictionary objects with the keys: person_id, x, y.")
+    groups: list[list[int]] = dspy.OutputField(desc="A list of lists with person_ids of people grouped together.")
+
 class vlm_IdentifyGroups2DText(dspy.Signature):
     """Given a list of people with their 2D bounding-box center's positions, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances (e.g., a natural gap or a small percentile that separates close points from distant ones). People belong to the same group if they are connected by pairwise distances below this threshold (transitively include people: if A is close to B and B is close to C, all three should be in the same group). Return only non-empty groups. Do not merge distant people into the same group."""
     detections: list[dict] = dspy.InputField(desc="list of dictionary objects with the keys: person_id, x, y.")
@@ -155,6 +161,7 @@ class vlm_IdentifyGroups_TransitiveText(dspy.Signature):
 class vlm_IdentifyGroups_DirectionTransitiveText(dspy.Signature):
     """Given a list of people with their 3D positions and its direction, group them into sets where each set contains people who are close to each other in space. Compute all pairwise distances between people. Choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if their pairwise distances are below this threshold. People belong to the same group if their pairwise distances are below this threshold. Transitively include people: if A is close to B and B is close to C, all three should be in the same group. All people in the group might have a facing direction that is roughly aligned, You can infer this information from the image. Return only non-empty groups. Do not merge distant people into the same group."""
     detections: list[dict] = dspy.InputField(desc="List of people, where each dictionary has keys: 'person_id', 'x', 'y', 'z', 'direction'.")
+    groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids that are close together.")
 
 class vlm_GroupsQAonlyFullImage(dspy.Signature):
     """ 
@@ -306,6 +313,7 @@ class RecognizeGroupHugging(dspy.Signature):
     image: dspy.Image = dspy.InputField(desc="Image with people")
     bbox: list[int] = dspy.InputField(desc="Bounding box around a group of people, in top-left and bottom-right notation: [x1, y1, x2, y2]")
     output: bool = dspy.OutputField(desc="True or False, answer if they are hugging or holding each other.")
+
 # class RecognizeGroupActivity_SingleGroup_ImgOnly(dspy.Signature):
 #     """Given an image with multiple people and a bounding box drawn around a subset of them, name the activity (or activities) that people inside the bounding box are engaged in. Consider their poses, interactions, and any objects they might be using."""
 #     image: dspy.Image = dspy.InputField(desc="Image with people and a bounding box surrounding a group")

@@ -66,6 +66,7 @@ def main():
     save_dir = '/'.join(save_dir_parts).replace('results', 'results_cultural')
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, f'{args.filename.split("/")[-1][:-5]}.json')
+    print(save_path)
     with open(save_path, 'w') as f:
         json.dump(res_json, f, indent=4)
 

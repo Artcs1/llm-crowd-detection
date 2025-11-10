@@ -5,7 +5,7 @@ import json
 import argparse
 
 from prompts import IdentifyGroups, IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive
-from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, vlm_IdentifyGroups_DirectionImage, vlm_IdentifyGroups_TransitiveImage, vlm_IdentifyGroups_DirectionTransitiveImage, baseline2
+from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, vlm_IdentifyGroups_DirectionImage, vlm_IdentifyGroups_TransitiveImage, vlm_IdentifyGroups_DirectionTransitiveImage, baseline2, vlm_IdentifyGroups2DImage, vlm_IdentifyGroups2DText, IdentifyGroups2D
 from prompts import vlm_IdentifyGroupsText, vlm_IdentifyGroups_DirectionText, vlm_IdentifyGroups_TransitiveText, vlm_IdentifyGroups_DirectionTransitiveText
 
 from prompts import IdentifyGroups_AllFrames, vlm_IdentifyGroups_AllFramesText, vlm_IdentifyGroups_AllFramesImage, vlm_GroupsQAonlyFullImage, full_baseline2
@@ -123,6 +123,8 @@ def get_dspy_cot(mode, prompt_method):
         elif prompt_method == 'p4':
             dspy_cot = dspy.ChainOfThought(IdentifyGroups_DirectionTransitive)
             use_direction = True
+        elif prompt_method == 'p5':
+            dspy_cot = dspy.ChainOfThought(IdentifyGroups2D)
     elif mode == 'vlm_image':
         if prompt_method == 'baseline1':
             dspy_cot = dspy.ChainOfThought(vlm_GroupsQAonlyImage)
@@ -132,12 +134,14 @@ def get_dspy_cot(mode, prompt_method):
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsImage)
         elif prompt_method == 'p2':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_DirectionImage)
-            use_direction = True
+            #use_direction = True
         elif prompt_method == 'p3':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_TransitiveImage)
         elif prompt_method == 'p4':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_DirectionTransitiveImage)
-            use_direction = True
+            #use_direction = True
+        elif prompt_method == 'p5':
+            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups2DImage)
     elif mode == 'vlm_text':
         if prompt_method == 'p1':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsText)
@@ -149,6 +153,8 @@ def get_dspy_cot(mode, prompt_method):
         elif prompt_method == 'p4':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_DirectionTransitiveText)
             use_direction = True
+        elif prompt_method == 'p5':
+            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups2DText)
 
     return (dspy_cot, use_direction)
 
@@ -168,11 +174,10 @@ def get_full_dspy_cot(mode, prompt_method):
             dspy_cot = full_baseline2()
         elif prompt_method == 'p1':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_AllFramesImage)
- 
 
     return (dspy_cot, use_direction)
 
-def get_allframes_bboxes(data, use_direction, depth_method):
+def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
 
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'
@@ -183,17 +188,21 @@ def get_allframes_bboxes(data, use_direction, depth_method):
         frame_input_data = []
         personid2bbox = {}
         for i,det in enumerate(frame['detections']):
+
             personid2bbox[det['track_id']] = det['bbox']
-            if use_direction:
-                frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2], 'direction':det['direction']})
+            if prompt_method == 'p5':
+                frame_input_data.append({'person_id': det['track_id'], 'x': (det['bbox'][0]+det['bbox'][2])//2, 'y': (det['bbox'][1]+det['bbox'][3])//2})
             else:
-                frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2]})
+                if use_direction:
+                    frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4), 'direction':det['direction']})
+                else:
+                    frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4)})
         all_frames.append(frame_input_data)
         bboxes.append(personid2bbox)
 
     return (all_frames, bboxes)
 
-def get_allframes_bboxes2(data, use_direction, depth_method):
+def get_allframes_bboxes2(data, use_direction, depth_method, prompt_method):
 
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'
@@ -201,15 +210,18 @@ def get_allframes_bboxes2(data, use_direction, depth_method):
         
     all_frames, bboxes = [], []
     for idx, frame in enumerate(data['frames']):
-        if (idx+1) % 5 == 0:
+        if ((idx+1) % 5 == 0 and idx<15) or idx == 0: 
             frame_input_data = []
             personid2bbox = {}
             for i,det in enumerate(frame['detections']):
                 personid2bbox[det['track_id']] = det['bbox']
-                if use_direction:
-                    frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2], 'direction':det['direction']})
+                if prompt_method == 'p5':
+                    frame_input_data.append({'person_id': det['track_id'], 'x': (det['bbox'][0]+det['bbox'][2])//2, 'y': (det['bbox'][1]+det['bbox'][3])//2})
                 else:
-                    frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2]})
+                    if use_direction:
+                        frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4), 'direction':det['direction']})
+                    else:
+                        frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4)})
         else:
             frame_input_data = []
             personid2bbox = {}
@@ -222,7 +234,7 @@ def get_allframes_bboxes2(data, use_direction, depth_method):
 
 
 
-def get_frame_bboxes(data, use_direction, depth_method, frame_id):
+def get_frame_bboxes(data, use_direction, depth_method, frame_id, prompt_method):
 
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'
@@ -241,11 +253,14 @@ def get_frame_bboxes(data, use_direction, depth_method, frame_id):
     personid2bbox = {}
     for i,det in enumerate(frame['detections']):
         personid2bbox[det['track_id']] = det['bbox']
-        if use_direction:
-            frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2], 'direction':det['direction']})
+        if prompt_method == 'p5':
+                frame_input_data.append({'person_id': det['track_id'], 'x': (det['bbox'][0]+det['bbox'][2])//2, 'y': (det['bbox'][1]+det['bbox'][3])//2})
         else:
-            frame_input_data.append({'person_id': det['track_id'], 'x': det[depth_method][0], 'y': det[depth_method][1], 'z': det[depth_method][2]})
-    
+            if use_direction:
+                frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4), 'direction':det['direction']})
+            else:
+                frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4)})
+        
     return (frame_input_data, personid2bbox)
 
 
@@ -335,7 +350,7 @@ def parse_args():
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
@@ -382,7 +397,7 @@ def parse_args_allframes():
     )
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
     parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4'], default='p1')
-    parser.add_argument('--api_base', type=str, default="http://localhost:8010/v1")
+    parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
     parser.add_argument('--max_tokens', type=int, default=24000)
@@ -402,7 +417,7 @@ def parse_args_inference_tasks():
         required=False,
         help="Comma-separated numbers or ranges, e.g. 1,2,5-7,10 or 0:51 or 0:51:15"
     )
-    parser.add_argument('--api_base', type=str, default="http://localhost:8010/v1")
+    parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
     parser.add_argument('--max_tokens', type=int, default=24000)

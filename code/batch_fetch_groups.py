@@ -20,7 +20,7 @@ def main():
     #collected_files = collected_files[::-1]
 
     for current_file in tqdm(collected_files):
-        try:
+        if True:
             with open(current_file, 'r') as f:
                 data = json.load(f)
         
@@ -29,10 +29,10 @@ def main():
             
             if args.setting == 'single':
                 dspy_cot, use_direction = get_dspy_cot(args.mode, args.prompt_method)
-                frame_input_data, personid2bbox = get_frame_bboxes(data, use_direction, args.depth_method, args.frame_id) 
+                frame_input_data, personid2bbox = get_frame_bboxes(data, use_direction, args.depth_method, args.frame_id, args.prompt_method)
             elif args.setting == 'full':
                 dspy_cot, use_direction = get_full_dspy_cot(args.mode, args.prompt_method)
-                all_frames, bboxes = get_allframes_bboxes(data, use_direction, args.depth_method)
+                all_frames, bboxes = get_allframes_bboxes2(data, use_direction, args.depth_method, args.prompt_method)
         
             save_filename = current_file.split('/')[-1][:-5]
             frame_path = f'{args.frame_path}/{save_filename}/{str(args.frame_id).zfill(5)}.jpeg'
@@ -64,8 +64,8 @@ def main():
                 res_path = 'predictions/'+ args.frame_path.split('/')[-2] + '/results_full'
                 save_full_frame(output, bboxes, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method, args.frame_id)
         
-        except Exception as e:
-            print(f'Fail in: {current_file}, seting: {args.setting},  mode: {args.mode}, model: {args.model}, prompt: {args.prompt_method}')
+        #except Exception as e:
+        #    print(f'Fail in: {current_file}, seting: {args.setting},  mode: {args.mode}, model: {args.model}, prompt: {args.prompt_method}')
     
 if __name__ == "__main__":
     main()
