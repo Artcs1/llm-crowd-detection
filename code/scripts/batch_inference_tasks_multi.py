@@ -16,6 +16,8 @@ parser.add_argument('video_dir', type=str)
 parser.add_argument('model', type=str)
 parser.add_argument('--start', type=int, default=None)
 parser.add_argument('--end', type=int, default=None)
+parser.add_argument('--api_base', type=str, default="http://localhost:8010/v1")
+parser.add_argument('--api_key', type=str, default="testkey")
 args = parser.parse_args()
 
 json_dir = args.json_dir
@@ -38,5 +40,7 @@ for file in tqdm(files):
         '--frame_ids', '1',
         '--frame_path', video_dir,
         '--max_tokens', '24000',
+        '--api_base', args.api_base,
+        '--api_key', args.api_key
     ]
     subprocess.run(cmd)
