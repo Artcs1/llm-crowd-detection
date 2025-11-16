@@ -314,27 +314,3 @@ class RecognizeGroupHugging(dspy.Signature):
     bbox: list[int] = dspy.InputField(desc="Bounding box around a group of people, in top-left and bottom-right notation: [x1, y1, x2, y2]")
     output: bool = dspy.OutputField(desc="True or False, answer if they are hugging or holding each other.")
 
-# class RecognizeGroupActivity_SingleGroup_ImgOnly(dspy.Signature):
-#     """Given an image with multiple people and a bounding box drawn around a subset of them, name the activity (or activities) that people inside the bounding box are engaged in. Consider their poses, interactions, and any objects they might be using."""
-#     image: dspy.Image = dspy.InputField(desc="Image with people and a bounding box surrounding a group")
-#     activity: list[str] = dspy.OutputField(desc="Name of one or more activities that people inside the bounding box are engaged in.")
-
-
-# class RecognizeGroupClothing_SingleGroup_ImgOnly(dspy.Signature):
-#     """Given an image with multiple people and a bounding box drawn around a subset of them, name the clothing that people inside the bounding box are engaged in."""
-#     image: dspy.Image = dspy.InputField(desc="Image with people and a bounding box surrounding a group")
-#     activity: list[str] = dspy.OutputField(desc="Name the clothing that people inside the bounding box are wearing.")
-    
-
-# class RecognizeGroupHandHolding_SingleGroup_ImgOnly(dspy.Signature):
-#     """Given an image with multiple people and a bounding box drawn around a subset of them, answer if they are holding hands."""
-#     image: dspy.Image = dspy.InputField(desc="Image with people and a bounding box surrounding a group")
-#     activity: bool = dspy.OutputField(desc="True or False, answer if they are holding hands.")
-
-    
-# class RecognizeGroupActivity_MultiGroup_ImgOnly(dspy.Signature):
-#     """Given an image with multiple people and bounding boxes drawn around a different subsets of them, name the activity (or activities) that people inside each bounding box are engaged in. Consider their poses, interactions, and any objects they might be using."""
-#     image: dspy.Image = dspy.InputField(desc="Image with people and bounding boxes surrounding a group")
-#     activity: list[list[str]] = dspy.OutputField(desc="Name of one or more activities that people inside each bounding box are engaged in.")
-
-
