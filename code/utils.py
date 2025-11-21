@@ -210,7 +210,7 @@ def get_allframes_bboxes2(data, use_direction, depth_method, prompt_method):
         
     all_frames, bboxes = [], []
     for idx, frame in enumerate(data['frames']):
-        if ((idx+1) % 5 == 0 and idx<15) or idx == 0: 
+        if ((idx+1) % 5 == 0 and idx<15):# or idx == 0: 
             frame_input_data = []
             personid2bbox = {}
             for i,det in enumerate(frame['detections']):

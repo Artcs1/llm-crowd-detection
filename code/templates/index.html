@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VLM/LLM Results Viewer</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        label { font-weight: bold; }
+        select { margin: 5px 20px 20px 0; }
+
+        #images_container { display: flex; flex-direction: column; gap: 20px; }
+
+        .model-row {
+            display: flex;
+            flex-direction: column;  /* stack images vertically */
+            gap: 20px;
+            align-items: center;
+        }
+
+	.model-row img {
+	    width: auto;          /* Keep original width, scale proportionally */
+	    height: auto;         /* Maintain aspect ratio */
+	    max-width: 90vw;      /* Never exceed 90% of viewport width */
+	    max-height: 80vh;     /* Never exceed 80% of viewport height */
+	    cursor: pointer;
+	    transition: transform 0.2s;
+	    display: block;
+	    margin: 10px auto;    /* Optional: center the image and add spacing */
+	}
+
+	.model-row img:hover { transform: scale(1.05); }
+
+        .model-header { text-align: center; font-weight: bold; margin-bottom: 5px; }
+
+        #modal {
+            display: none;
+            position: fixed;
+            top:0; left:0;
+            width:100%; height:100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center; align-items: center;
+        }
+
+        #modal img { max-width: 95%; max-height: 95%; }
+    </style>
+</head>
+<body>
+    <h1>VLM/LLM Results Viewer</h1>
+
+    <div>
+        <label>Select Model:</label>
+        <select id="model_for_paths"></select>
+
+        <label>Select Mode:</label>
+        <select id="mode_select"></select>
+
+        <label>Select Extra Folder:</label>
+        <select id="extra_select"></select>
+
+        <label>Select Method:</label>
+        <select id="method_select"></select>
+    </div>
+
+    <div>
+        <label>Select Inner Path:</label>
+        <select id="inner_select"></select>
+    </div>
+
+    <div id="images_container"></div>
+
+    <div id="modal"><img id="modal_img" src=""></div>
+
+    <script>
+        const vlms = {{ vlms | tojson }};
+        const modelSelect = document.getElementById("model_for_paths");
+        const modeSelect = document.getElementById("mode_select");
+        const extraSelect = document.getElementById("extra_select");
+        const methodSelect = document.getElementById("method_select");
+        const innerSelect = document.getElementById("inner_select");
+        const imagesContainer = document.getElementById("images_container");
+        const modal = document.getElementById("modal");
+        const modalImg = document.getElementById("modal_img");
+
+        vlms.forEach(model => {
+            let opt = document.createElement("option");
+            opt.value = model;
+            opt.textContent = model.split("/").pop();
+            modelSelect.appendChild(opt);
+        });
+
+        function loadModes() {
+            const model = modelSelect.value;
+            fetch(`/get_modes?model=${encodeURIComponent(model)}`)
+                .then(res => res.json())
+                .then(modes => {
+                    modeSelect.innerHTML = "";
+                    modes.forEach(mode => {
+                        const opt = document.createElement("option");
+                        opt.value = mode;
+                        opt.textContent = mode;
+                        modeSelect.appendChild(opt);
+                    });
+                    if (modes.length > 0) modeSelect.dispatchEvent(new Event("change"));
+                });
+        }
+
+        function loadExtras() {
+            const model = modelSelect.value;
+            const mode = modeSelect.value;
+            fetch(`/get_extra_folders?model=${encodeURIComponent(model)}&mode=${encodeURIComponent(mode)}`)
+                .then(res => res.json())
+                .then(extras => {
+                    extraSelect.innerHTML = "";
+                    extras.forEach(e => {
+                        const opt = document.createElement("option");
+                        opt.value = e;
+                        opt.textContent = e;
+                        extraSelect.appendChild(opt);
+                    });
+                    if (extras.length > 0) extraSelect.dispatchEvent(new Event("change"));
+                });
+        }
+
+        function loadMethods() {
+            const model = modelSelect.value;
+            const mode = modeSelect.value;
+            const extra = extraSelect.value;
+            fetch(`/get_methods?model=${encodeURIComponent(model)}&mode=${encodeURIComponent(mode)}&extra=${encodeURIComponent(extra)}`)
+                .then(res => res.json())
+                .then(methods => {
+                    methodSelect.innerHTML = "";
+                    methods.forEach(m => {
+                        const opt = document.createElement("option");
+                        opt.value = m;
+                        opt.textContent = m;
+                        methodSelect.appendChild(opt);
+                    });
+                    if (methods.length > 0) methodSelect.dispatchEvent(new Event("change"));
+                });
+        }
+
+        function loadInnerPaths() {
+            const model = modelSelect.value;
+            const mode = modeSelect.value;
+            const extra = extraSelect.value;
+            const method = methodSelect.value;
+            fetch(`/get_inner_paths_by_method?model=${encodeURIComponent(model)}&mode=${encodeURIComponent(mode)}&extra=${encodeURIComponent(extra)}&method=${encodeURIComponent(method)}`)
+                .then(res => res.json())
+                .then(paths => {
+                    innerSelect.innerHTML = "";
+                    paths.forEach(p => {
+                        const opt = document.createElement("option");
+                        opt.value = p;
+                        opt.textContent = p.split("/").slice(3).join("/");
+                        innerSelect.appendChild(opt);
+                    });
+                    if (paths.length > 0) innerSelect.dispatchEvent(new Event("change"));
+                });
+        }
+
+        function loadImagesForInner() {
+            const inner = innerSelect.value;
+            fetch(`/get_images_by_inner?inner=${encodeURIComponent(inner)}`)
+                .then(res => res.json())
+                .then(data => {
+                    imagesContainer.innerHTML = "";
+                    const models = Object.keys(data);
+                    if (!models.length) return;
+
+                    const maxImages = Math.max(...models.map(m => data[m].length));
+                    for (let i = 0; i < maxImages; i++) {
+                        const row = document.createElement("div");
+                        row.classList.add("model-row");
+
+                        models.forEach(model => {
+                            const cell = document.createElement("div");
+                            cell.style.textAlign = "center";
+                            if (i === 0) {
+                                const header = document.createElement("div");
+                                header.className = "model-header";
+                                header.textContent = model;
+                                cell.appendChild(header);
+                            }
+                            if (data[model][i]) {
+                                const img = document.createElement("img");
+                                img.src = `/images/${model}/${inner}/${data[model][i]}`;
+                                cell.appendChild(img);
+                            }
+                            row.appendChild(cell);
+                        });
+                        imagesContainer.appendChild(row);
+                    }
+                });
+        }
+
+        imagesContainer.addEventListener("click", e => {
+            if(e.target.tagName === "IMG") {
+                modal.style.display = "flex";
+                modalImg.src = e.target.src;
+            }
+        });
+        modal.addEventListener("click", () => { modal.style.display = "none"; });
+
+        // Event listeners
+        modelSelect.addEventListener("change", loadModes);
+        modeSelect.addEventListener("change", loadExtras);
+        extraSelect.addEventListener("change", loadMethods);
+        methodSelect.addEventListener("change", loadInnerPaths);
+        innerSelect.addEventListener("change", loadImagesForInner);
+
+        // Initial load
+        modelSelect.dispatchEvent(new Event("change"));
+    </script>
+</body>
+</html>
+
+
