@@ -236,6 +236,8 @@ def get_allframes_bboxes2(data, use_direction, depth_method, prompt_method):
 
 def get_frame_bboxes(data, use_direction, depth_method, frame_id, prompt_method):
 
+    print(frame_id)
+
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'
 
@@ -264,7 +266,7 @@ def get_frame_bboxes(data, use_direction, depth_method, frame_id, prompt_method)
     return (frame_input_data, personid2bbox)
 
 
-def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_image, model, mode, depth_method, prompt_method):
+def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_image, model, mode, depth_method, prompt_method, frame_id):
     if save_image == True:
         img = cv2.imread(frame_path)
 
@@ -283,7 +285,8 @@ def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_
                         cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
 
 
-        res_path = os.path.join(res_path, model.split('/')[1]+'/'+ mode + '/' + depth_method+'/'+prompt_method, save_filename,)
+
+        res_path = os.path.join(res_path,model.split("/")[1],mode,depth_method,prompt_method,str(frame_id),save_filename,)
         os.makedirs(res_path, exist_ok=True)
         save_path = os.path.join(res_path, 'result.png')
         cv2.imwrite(save_path, img)
@@ -293,7 +296,7 @@ def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_
         
     else:
 
-        res_path = os.path.join(res_path, model.split('/')[1]+'/'+ mode + '/'+ depth_method+'/'+prompt_method, save_filename,)
+        res_path = os.path.join(res_path,model.split("/")[1],mode,depth_method,prompt_method,str(frame_id),save_filename,)
         os.makedirs(res_path, exist_ok=True)
         with open(f'{res_path}/{save_filename}.json', "w") as f:
             json.dump(output, f, indent=4)
@@ -318,7 +321,7 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
                         cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
 
         # configure this path                
-        res_path = os.path.join(res_path, model.split('/')[1]+'/'+ mode + '/' + depth_method+'/'+prompt_method, save_filename,)
+        res_path = os.path.join(res_path,model.split("/")[1],mode,depth_method,prompt_method,str(frame_id),save_filename,)
         os.makedirs(res_path, exist_ok=True)
         save_path = os.path.join(res_path, 'result.png')
         cv2.imwrite(save_path, img)
@@ -329,7 +332,7 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
     
     else:
 
-        res_path = os.path.join(res_path, model.split('/')[1]+'/'+ mode + '/'+ depth_method+'/'+prompt_method, save_filename,)
+        res_path = os.path.join(res_path,model.split("/")[1],mode,depth_method,prompt_method,str(frame_id),save_filename,)
         os.makedirs(res_path, exist_ok=True)
         with open(f'{res_path}/{save_filename}.json', "w") as f:
             json.dump(output, f, indent=4)
@@ -349,7 +352,7 @@ def parse_args():
     parser.add_argument('mode', type=str, choices=['llm', 'vlm_text', 'vlm_image'])
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
-    parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='naive_3D_60FOV')
+    parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='detany_3D')
     parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
