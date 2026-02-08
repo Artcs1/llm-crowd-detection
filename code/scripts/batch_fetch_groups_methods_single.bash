@@ -10,8 +10,8 @@ api_base=$2
 api_key=$3
 frame_id=$4
 
-json_path="../../../SEKAI_OURS_200/jsons_step4"
-frame_path="../../../SEKAI_OURS_200/videos_frames"
+json_path="../../JRDB_fixed_gold/jsons_gold"
+frame_path="../../JRDB_fixed_gold/videos_frames"
 
 if [[ "$model_name" == *"VL"* ]]; then
   modes=("vlm_image")
@@ -20,8 +20,8 @@ else
 fi
 
 types=("single" "full")
-prompts=("p1" "p2" "p3" "p4")
-depth_methods=("naive_3D_60FOV" "unidepth_3D" "detany_3D")
+prompts=("p1" "baseline1" "baseline2")
+depth_methods=("detany_3D")
 
 for type in "${types[@]}"; do
   for mode in "${modes[@]}"; do
@@ -36,7 +36,7 @@ for type in "${types[@]}"; do
       prompts=("p1")
       #prompts=("p1" "p2" "p3" "p4" "p5")
     else
-      prompts=("p1")
+      prompts=("p1" "baseline1" "baseline2")
       #prompts=("p1" "p2" "p3" "p4" "p5" "baseline1" "baseline2")
     fi
 

@@ -10,16 +10,16 @@ dataset=$1
 output_mode=$2
 frame_id=$3
 
-modes=("single")
-prompt_methods=("p1" "p2" "p3" "p4" "p5" "baseline1" "baseline2")
-depth_methods=("naive_3D_60FOV" "unidepth_3D" "detany_3D")
-vlm_modes=("llm")
+modes=("single" "full")
+prompt_methods=("p1" "baseline1" "baseline2")
+depth_methods=("detany_3D")
+vlm_modes=("llm" "vlm_image")
 
 for vlm_mode in "${vlm_modes[@]}"; do
   if [[ "$vlm_mode" == "llm" ]]; then
-    models=("Qwen2.5-72B-Instruct" "Qwen2.5-32B-Instruct" "Qwen2.5-7B-Instruct" "Qwen2.5-3B-Instruct")
+    models=("Qwen2.5-3B-Instruct" "Qwen2.5-7B-Instruct" "Qwen2.5-32B-Instruct" "Qwen2.5-72B-Instruct" "Qwen3-4B-Instruct-2507" "Qwen3-30B-A3B-Instruct-2507")
   else
-    models=("Qwen2.5-VL-72B-Instruct" "Qwen2.5-VL-32B-Instruct" "Qwen2.5-VL-7B-Instruct" "Qwen2.5-VL-3B-Instruct")
+    models=("Qwen2.5-VL-3B-Instruct" "Qwen2.5-VL-7B-Instruct" "Qwen2.5-VL-32B-Instruct" "Qwen2.5-VL-72B-Instruct")
   fi
   for model in "${models[@]}"; do
     for prompt_method in "${prompt_methods[@]}"; do

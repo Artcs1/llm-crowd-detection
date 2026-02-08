@@ -62,7 +62,7 @@ def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path
     return output, is_error
 
 def full_inference_wrapper(lm, dspy_module, input_text, target_frame, mode='llm', frame_path= ''):
-        
+    
     if mode == 'llm' or mode == 'vlm_text': 
         output, is_error = full_inference(dspy_module, input_text, target_frame, mode, '') 
     elif mode == 'vlm_image': 
@@ -100,7 +100,7 @@ def inference_wrapper(lm, dspy_module, input_text, mode='llm', image_path='optio
         output, is_error = inference(dspy_module, input_text, mode, image_path)
     res = {}
     if not is_error:
-        res['hist'] = str(lm.history[-1])
+        res['hist'] = str(lm.history[-1]) 
         res['groups'] = output
         res['error'] = None
     else:
@@ -177,7 +177,7 @@ def get_full_dspy_cot(mode, prompt_method):
 
     return (dspy_cot, use_direction)
 
-def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
+def _get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
 
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'
@@ -202,15 +202,18 @@ def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
 
     return (all_frames, bboxes)
 
-def get_allframes_bboxes2(data, use_direction, depth_method, prompt_method):
+def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
 
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'
 
+    if 'JRDB' in data['dataset']:
+        mod_number = 5
+        tope = 15 
         
     all_frames, bboxes = [], []
     for idx, frame in enumerate(data['frames']):
-        if ((idx+1) % 5 == 0 and idx<15):# or idx == 0: 
+        if (((idx+1) % mod_number == 0 and idx<tope)):# or idx == 0: 
             frame_input_data = []
             personid2bbox = {}
             for i,det in enumerate(frame['detections']):
@@ -236,7 +239,7 @@ def get_allframes_bboxes2(data, use_direction, depth_method, prompt_method):
 
 def get_frame_bboxes(data, use_direction, depth_method, frame_id, prompt_method):
 
-    print(frame_id)
+    #print(frame_id)
 
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'

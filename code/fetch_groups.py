@@ -22,10 +22,10 @@ def main():
     
     if args.setting == 'single':
         dspy_cot, use_direction = get_dspy_cot(args.mode, args.prompt_method)
-        frame_input_data, personid2bbox = get_frame_bboxes(data, use_direction, args.depth_method, args.frame_id) 
+        frame_input_data, personid2bbox = get_frame_bboxes(data, use_direction, args.depth_method, args.frame_id, args.prompt_method) 
     elif args.setting == 'full':
         dspy_cot, use_direction = get_full_dspy_cot(args.mode, args.prompt_method)
-        all_frames, bboxes = get_allframes_bboxes(data, use_direction, args.depth_method)
+        all_frames, bboxes = get_allframes_bboxes(data, use_direction, args.depth_method, args.prompt_method)
 
     save_filename = args.filename.split('/')[-1][:-5]
     frame_path = f'{args.frame_path}/{save_filename}/{str(args.frame_id).zfill(5)}.jpeg'

@@ -18,7 +18,7 @@ def add_prediction(det_file, idx, int_img, x1, y1, x2, y2, group_id, dc, lvl):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select mode, prompt method, model, and VLM mode")
-    parser.add_argument("--dataset", type=str, choices=["JRDB_gold","JRDB","BLENDER","SEKAI_OURS","SEKAI_OURS_200"], required=True, help="Dataset options")
+    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","BLENDER","SEKAI_OURS","SEKAI_OURS_200"], required=True, help="Dataset options")
     parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
     parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D"], default="naive_3D_60FOV", help="Depth method")
     parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p2","p3","p4","p5"], required=True, help="Prompt method")
@@ -33,9 +33,9 @@ if __name__ == '__main__':
     #print(base_dir)
     #base_dir = "/home/artcs1/Desktop/llm-crowd-detection/code"
     
-    if args.dataset == 'JRDB':
+    if args.dataset == 'JRDB_fixed':
         H, W = 480, 3760
-    if args.dataset == 'JRDB_gold':
+    elif args.dataset == 'JRDB_fixed_gold':
         H, W = 480, 3760
     elif args.dataset == 'BLENDER':
         H, W = 3240, 3240
@@ -143,7 +143,7 @@ if __name__ == '__main__':
                                 predicted_group.append([min(x1,x2), min(y1,y2), max(x2,x1), max(y1,y2)])
                     if flag: 
                         group_id+=1
-                        predicted_groups.append(predicte_group)
+                        predicted_groups.append(predicted_group)
     
         else:    
             groups          = data['groups']
