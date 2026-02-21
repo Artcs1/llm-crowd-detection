@@ -26,7 +26,8 @@ def parse_args_inference_tasks():
     parser.add_argument('--frame_path', type=str, default='VBIG_dataset/videos_frames', help='Path to frame for visualization')
     parser.add_argument('--num_parts', type=int, default=1, help='Number of parts to divide annotations into')
     parser.add_argument('--part_id', type=int, default=1, help='ID of the part to run inference on')
-    return parser.parse_args("/lustre/nvwulf/scratch/pchitale/workspace/data/eccv Qwen/Qwen3-VL-30B-A3B-Thinking".split(' '))
+    # return parser.parse_args("/lustre/nvwulf/scratch/pchitale/workspace/data/eccv Qwen/Qwen3-VL-30B-A3B-Thinking".split(' '))
+    return parser.parse_args()
 
 
 def save_results(res_json, save_dir, filename, num_parts, part_id):
