@@ -51,7 +51,7 @@ def main():
     if args.setting == 'single':
         output['id_tobbox'] = personid2bbox
         res_path = 'predictions/'+ args.frame_path.split('/')[-2] + '/results'
-        save_frame(output, personid2bbox, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method)
+        save_frame(output, personid2bbox, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method, args.frame_id)
     elif args.setting == 'full':
         output['id_tobbox'] = bboxes[args.frame_id-1]
         res_path = 'predictions/'+ args.frame_path.split('/')[-2] + '/results_full'

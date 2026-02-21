@@ -13,14 +13,17 @@ frame_id=$4
 json_path="../../JRDB_fixed_gold/jsons_gold"
 frame_path="../../JRDB_fixed_gold/videos_frames"
 
-if [[ "$model_name" == *"VL"* ]]; then
+if [[ "$model_name" == *"Cosmos"* ]]; then
+  modes=("llm" "vlm_image")
+elif [[ "$model_name" == *"VL"* ]]; then
   modes=("vlm_image")
 else
   modes=("llm")
 fi
 
+modes=("vlm_image")
 types=("single" "full")
-prompts=("p1" "baseline1" "baseline2")
+prompts=("p1")
 depth_methods=("detany_3D")
 
 for type in "${types[@]}"; do
@@ -36,7 +39,8 @@ for type in "${types[@]}"; do
       prompts=("p1")
       #prompts=("p1" "p2" "p3" "p4" "p5")
     else
-      prompts=("p1" "baseline1" "baseline2")
+      #prompts=("p1")
+      prompts=("baseline1" "baseline2")
       #prompts=("p1" "p2" "p3" "p4" "p5" "baseline1" "baseline2")
     fi
 

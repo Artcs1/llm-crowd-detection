@@ -276,7 +276,9 @@ def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_
         if prompt_method == 'baseline1' or prompt_method == 'baseline2' :
             for ind, p in enumerate(output['groups']):
                 for bbox in p:
-                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
+                    #print(len(bbox))
+                    if len(bbox) == 4:
+                        img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
@@ -312,7 +314,8 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
         if prompt_method == 'baseline1' or prompt_method == 'baseline2':
             for ind, p in enumerate(output['groups']):
                 for bbox in p:
-                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
+                    if len(bbox) == 4:
+                        img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
