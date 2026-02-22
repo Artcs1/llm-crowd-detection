@@ -98,7 +98,10 @@ def inference_wrapper(lm, dspy_module, input_text, mode='llm', image_path='optio
         output, is_error = inference(dspy_module, input_text, mode)
     elif mode == 'vlm_image':
         output, is_error = inference(dspy_module, input_text, mode, image_path)
+    #print(output)
+    #print(is_error)
     res = {}
+    #print(lm.history)
     if not is_error:
         res['hist'] = str(lm.history[-1]) 
         res['groups'] = output
@@ -366,6 +369,7 @@ def parse_args():
     parser.add_argument('--max_tokens', type=int, default=24000)
     parser.add_argument('--frame_path', type=str, default='VBIG_dataset/videos_frames', help='Path to frame for visualization')
     parser.add_argument("--save_image", action="store_true", help="Save Image")
+    parser.add_argument('--start', type=str, default = 0)
     return parser.parse_args()
 
 

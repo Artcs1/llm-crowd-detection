@@ -70,10 +70,24 @@ def main():
 
         for gbox in annotation['groups']:
             res = {}
-            g_activity, hist_activity = inference_task(lm, activity_cot, frame_path, gbox['bbox'])
-            g_clothing, hist_clothing = inference_task(lm, clothing_cot, frame_path, gbox['bbox'])
-            g_handholding, hist_handholding = inference_task(lm, handholding_cot, frame_path, gbox['bbox'])
-            g_hugging, hist_hugging = inference_task(lm, hugging_cot, frame_path, gbox['bbox'])
+            try:
+                g_activity, hist_activity = inference_task(lm, activity_cot, frame_path, gbox['bbox'])
+            except Exception as e:
+                g_activity, hist_activity = "", ""
+            try:
+                g_clothing, hist_clothing = inference_task(lm, clothing_cot, frame_path, gbox['bbox'])
+            except Exception as e:
+                g_clothing, hist_clothing = "", ""
+
+            try:
+                g_handholding, hist_handholding = inference_task(lm, handholding_cot, frame_path, gbox['bbox'])
+            except Exception as e:
+                g_handholding, hist_handholding = "", ""
+
+            try:
+                g_hugging, hist_hugging = inference_task(lm, hugging_cot, frame_path, gbox['bbox'])
+            except Exception as e:
+                g_hugging, hist_hugging = "",""
 
             res['group_activity'] = g_activity
             res['group_clothing'] = g_clothing
