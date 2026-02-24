@@ -56,7 +56,7 @@ def get_methods():
     extra = request.args.get("extra")
     if not model or not mode or not extra:
         return jsonify([])
-    extra_path = ROOT_PATH / model / mode / extra
+    extra_path = ROOT_PATH / model / mode / extra 
     if not extra_path.exists():
         return jsonify([])
     methods = [f.name for f in extra_path.iterdir() if f.is_dir()]
@@ -70,12 +70,12 @@ def get_inner_paths_by_method():
     method = request.args.get("method")
     if not all([model, mode, extra, method]):
         return jsonify([])
-    method_path = ROOT_PATH / model / mode / extra / method
+    method_path = ROOT_PATH / model / mode / extra / method/ "15"
     inner_paths = []
     if method_path.exists():
         for inner in method_path.iterdir():
             if inner.is_dir():
-                rel_path = "/".join([mode, extra, method, inner.name])
+                rel_path = "/".join([mode, extra, method, "15", inner.name])
                 inner_paths.append(rel_path)
     inner_paths.sort()
     return jsonify(inner_paths)
@@ -86,6 +86,8 @@ def get_images_by_inner():
     result = {}
     for model_folder in get_subfolders(ROOT_PATH):
         folder = ROOT_PATH / model_folder / Path(inner_path)
+        print(folder)
+        print(inner_path)
         if folder.exists():
             result[model_folder] = get_images(folder)
     return jsonify(result)
@@ -95,5 +97,5 @@ def serve_image(filepath):
     return send_from_directory(ROOT_PATH, filepath)
 
 if __name__ == "__main__":
-    app.run(port=8889, debug=True)
+    app.run(port=8888, debug=True)
 

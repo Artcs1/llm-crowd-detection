@@ -17,9 +17,9 @@ vlm_modes=("llm" "vlm_image")
 
 for vlm_mode in "${vlm_modes[@]}"; do
   if [[ "$vlm_mode" == "llm" ]]; then
-    models=("Qwen2.5-3B-Instruct" "Qwen2.5-7B-Instruct" "Qwen2.5-32B-Instruct" "Qwen2.5-72B-Instruct" "Qwen3-4B-Instruct-2507" "Qwen3-30B-A3B-Instruct-2507" "Qwen3-235B-A22B-Instruct-2507" "Cosmos-Reason2-8B" "Cosmos-Reason2-2B")
+    models=("Qwen2.5-3B-Instruct" "Qwen2.5-7B-Instruct" "Qwen2.5-32B-Instruct" "Qwen2.5-72B-Instruct" "Qwen3-4B-Instruct-2507" "Qwen3-30B-A3B-Instruct-2507" "Qwen3-235B-A22B-Instruct-2507" "Cosmos-Reason2-8B" "Cosmos-Reason2-2B" "gemini")
   else
-    models=("Qwen2.5-VL-3B-Instruct" "Qwen2.5-VL-7B-Instruct" "Qwen2.5-VL-32B-Instruct" "Qwen2.5-VL-72B-Instruct" "Qwen3-VL-4B-Instruct" "Qwen3-VL-30B-A3B-Instruct" "Qwen3-VL-235B-A22B-Instruct" "Cosmos-Reason2-8B" "Cosmos-Reason2-2B")
+    models=("Qwen2.5-VL-3B-Instruct" "Qwen2.5-VL-7B-Instruct" "Qwen2.5-VL-32B-Instruct" "Qwen2.5-VL-72B-Instruct" "Qwen3-VL-4B-Instruct" "Qwen3-VL-30B-A3B-Instruct" "Qwen3-VL-235B-A22B-Instruct" "Cosmos-Reason2-8B" "Cosmos-Reason2-2B" "gemini")
   fi
   for model in "${models[@]}"; do
     for prompt_method in "${prompt_methods[@]}"; do

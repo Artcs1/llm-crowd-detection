@@ -74,6 +74,7 @@ if __name__ == '__main__':
     files.sort()
     
     print(path)
+    print(args.model)
 
     scenarios = set()
     det_file = f"detection_files/{args.dataset}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.txt"
@@ -119,6 +120,13 @@ if __name__ == '__main__':
                     for person in group:
                         if len(person) == 4:
                             x1, y1, x2, y2 = min(person[0], person[2]), min(person[1], person[3]),max(person[0], person[2]),max(person[1], person[3])
+
+                            if 'Qwen3' in args.model or 'Cosmos' in args.model:
+                                x1 = int(x1/1000 * W)
+                                y1 = int(y1/1000 * H)
+                                x2 = int(x2/1000 * W)
+                                y2 = int(y2/1000 * H)
+
                             if x1 == x2 or y1 == y2:
                                 continue
                             if x1>=0 and x2<=W and y1>=0 and y2<=H:
@@ -135,12 +143,21 @@ if __name__ == '__main__':
                     for person in group:
                         if len(person) == 4:
                             x1, y1, x2, y2 = person
+
+                            if 'Qwen3' in args.model or 'Cosmos' in args.model:
+                                x1 = int(x1/1000 * W)
+                                y1 = int(y1/1000 * H)
+                                x2 = int(x2/1000 * W)
+                                y2 = int(y2/1000 * H)
+
                             if x1 == x2 or y1 == y2:
                                 continue
+                            #print(x1)
                             if x1>=0 and x2<=W and y1>=0 and y2<=H:
                                 flag = True
                                 add_prediction(det_file, idx, int_img, min(x1,x2), min(y1,y2), max(x2,x1), max(y1,y2), group_id, dc, lvl)
                                 predicted_group.append([min(x1,x2), min(y1,y2), max(x2,x1), max(y1,y2)])
+
                     if flag: 
                         group_id+=1
                         predicted_groups.append(predicted_group)

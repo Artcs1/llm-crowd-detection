@@ -273,6 +273,7 @@ def get_frame_bboxes(data, use_direction, depth_method, frame_id, prompt_method)
 
 
 def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_image, model, mode, depth_method, prompt_method, frame_id):
+
     if save_image == True:
         img = cv2.imread(frame_path)
 
@@ -281,7 +282,11 @@ def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_
                 for bbox in p:
                     #print(len(bbox))
                     if len(bbox) == 4:
-                        img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
+                        if 'Qwen3' in model or 'Cosmos' in model:
+                            height, width, _ = img.shape 
+                            img = cv2.rectangle(img, (int(bbox[0]/ 1000 *width), int(bbox[1]/1000*height)), (int(bbox[2]/1000*width), int(bbox[3]/1000*height)), CV2_COLORS[ind%len(CV2_COLORS)], 2)
+                        else:
+                            img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
@@ -318,7 +323,11 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
             for ind, p in enumerate(output['groups']):
                 for bbox in p:
                     if len(bbox) == 4:
-                        img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
+                        if 'Qwen3' in model or 'Cosmos' in model:
+                            height, width, _ = img.shape 
+                            img = cv2.rectangle(img, (int(bbox[0]/ 1000 *width), int(bbox[1]/1000*height)), (int(bbox[2]/1000*width), int(bbox[3]/1000*height)), CV2_COLORS[ind%len(CV2_COLORS)], 2)
+                        else:
+                            img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
