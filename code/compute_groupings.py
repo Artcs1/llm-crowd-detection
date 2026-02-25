@@ -33,7 +33,7 @@ if __name__ == '__main__':
     elif args.dataset == 'SEKAI_OURS_200':
         H, W = 1080, 1920
     
-    results_folder = f"groupings/{args.dataset}/results" if args.mode == "single" else f"predictions/{args.dataset}/results_{args.mode}"
+    results_folder = f"predictions/{args.dataset}/results" if args.mode == "single" else f"predictions/{args.dataset}/results_{args.mode}"
     
     path = os.path.join(
         base_dir,
@@ -46,9 +46,8 @@ if __name__ == '__main__':
         "*"                        # wildcard for files
     )
 
-    if not os.path.exists(group_path):
-        os.makedirs(group_path)
-    
+    print(path)
+
     files = glob.glob(path)
     files.sort()
     
@@ -56,7 +55,7 @@ if __name__ == '__main__':
     print(args.model)
     scenarios = set()
 
-    det_file = f"detection_files/{args.dataset}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.pickle"
+    det_file = f"grouping_files/{args.dataset}_{args.frame_id}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.pkl"
     det_directory = "/".join(det_file.split('/')[:-1])
     
     if not os.path.exists(det_directory):
@@ -64,7 +63,9 @@ if __name__ == '__main__':
     
     if os.path.exists(det_file):
         os.remove(det_file)
-    
+
+
+    results = {} 
     
     for ind, file in enumerate(tqdm(files)):
         last = file.split('/')
@@ -83,14 +84,36 @@ if __name__ == '__main__':
             orig_scenario  = "".join(split_scenario[:-1]) 
             number   = int(split_scenario[-1])
             scenarios.add(orig_scenario)
-    
-
-        print(scenario)
-        print(split_scenario)
-        print(orig_scenario)
-        print(number)
-
+        
 
         dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*15, 1, 1
 
-        print(data.items())
+        if idx not in results:
+            results[idx] = {}
+
+        all_persons = set()
+        groups = []
+
+        personid2bbox = data['id_tobbox']
+
+        for data in data['groups']:
+            current_group = []
+            for person in data:
+                if str(person) in personid2bbox and str(person) not in all_persons:
+                    all_persons.add(str(person))
+                    current_group.append(person)
+            if current_group:
+                groups.append(current_group)
+
+        for key,value in personid2bbox.items():
+            if key not in all_persons:
+                groups.append([int(key)])                
+
+        results[idx][str(number)] = groups
+
+ 
+    if results:
+        save_path = f"grouping_files/{args.dataset}_{args.frame_id}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.pkl"
+        with open(save_path, "wb") as f:
+            pickle.dump(results, f)
+
