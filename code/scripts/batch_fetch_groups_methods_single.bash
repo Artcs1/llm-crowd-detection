@@ -10,8 +10,11 @@ api_base=$2
 api_key=$3
 frame_id=$4
 
-json_path="../../JRDB_fixed_gold/jsons_gold"
-frame_path="../../JRDB_fixed_gold/videos_frames"
+#json_path="../../JRDB_fixed_gold/jsons_gold"
+#frame_path="../../JRDB_fixed_gold/videos_frames"
+
+json_path="../../SEKAI_540_3/jsons_step3"
+frame_path="../../SEKAI_540_3/videos_frames"
 
 if [[ "$model_name" == *"Cosmos"* ]]; then
   modes=("llm" "vlm_image")
@@ -21,10 +24,10 @@ else
   modes=("llm")
 fi
 
-modes=("vlm_image")
-types=("single" "full")
+#modes=("vlm_image")
+types=("single") 
 prompts=("p1")
-depth_methods=("detany_3D")
+depth_methods=("unidepth_3D")
 
 for type in "${types[@]}"; do
   for mode in "${modes[@]}"; do
@@ -39,8 +42,9 @@ for type in "${types[@]}"; do
       prompts=("p1")
       #prompts=("p1" "p2" "p3" "p4" "p5")
     else
-      #prompts=("p1")
-      prompts=("baseline1" "baseline2")
+      prompts=("p1" "baseline1" "baseline2")
+      #prompts=("baseline1")
+      #prompts=("baseline2")
       #prompts=("p1" "p2" "p3" "p4" "p5" "baseline1" "baseline2")
     fi
 

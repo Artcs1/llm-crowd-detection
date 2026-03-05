@@ -11,7 +11,7 @@ frame_id=$2
 
 modes=("single" "full")
 prompt_methods=("p1")
-depth_methods=("detany_3D")
+depth_methods=("unidepth_3D")
 vlm_modes=("llm" "vlm_image")
 
 for vlm_mode in "${vlm_modes[@]}"; do

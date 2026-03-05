@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select mode, prompt method, model, and VLM mode")
-    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","BLENDER","SEKAI_OURS","SEKAI_OURS_200"], required=True, help="Dataset options")
+    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","BLENDER","SEKAI_OURS","SEKAI_OURS_200","SEKAI_540_3"], required=True, help="Dataset options")
     parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
     parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D"], default="naive_3D_60FOV", help="Depth method")
     parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p2","p3","p4","p5"], required=True, help="Prompt method")
@@ -31,6 +31,8 @@ if __name__ == '__main__':
     elif args.dataset == 'SEKAI_OURS':
         H, W = 1080, 1920
     elif args.dataset == 'SEKAI_OURS_200':
+        H, W = 1080, 1920
+    elif args.dataset == 'SEKAI_540_3':
         H, W = 1080, 1920
     
     results_folder = f"predictions/{args.dataset}/results" if args.mode == "single" else f"predictions/{args.dataset}/results_{args.mode}"
@@ -76,17 +78,17 @@ if __name__ == '__main__':
     
         scenario       = last[-1]
 
-        if args.dataset == 'SEKAI_OURS':
+        if args.dataset == 'SEKAI_540_3':
             scenarios.add(scenario)
-            number   = 0 # int(split_scenario[-1])
+            idx   = int(int(scenario.split('_')[-1])) - 1
+            number   = 0
+            dc, int_img, lvl, group_id = 1, (number+1)*1, 1, 1
         else:
             split_scenario = scenario.split('_')
             orig_scenario  = "".join(split_scenario[:-1]) 
             number   = int(split_scenario[-1])
             scenarios.add(orig_scenario)
-        
-
-        dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*15, 1, 1
+            dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*15, 1, 1
 
         if idx not in results:
             results[idx] = {}
@@ -112,8 +114,10 @@ if __name__ == '__main__':
         results[idx][str(number)] = groups
 
  
+    #print(results)
     if results:
         save_path = f"grouping_files/{args.dataset}_{args.frame_id}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.pkl"
         with open(save_path, "wb") as f:
             pickle.dump(results, f)
+
 

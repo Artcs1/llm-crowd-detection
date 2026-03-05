@@ -12,7 +12,7 @@ frame_id=$3
 
 modes=("single" "full")
 prompt_methods=("p1" "baseline1" "baseline2")
-depth_methods=("detany_3D")
+depth_methods=("unidepth_3D")
 vlm_modes=("llm" "vlm_image")
 
 for vlm_mode in "${vlm_modes[@]}"; do
@@ -41,7 +41,7 @@ for vlm_mode in "${vlm_modes[@]}"; do
             --prompt_method "$prompt_method" \
             --model "$model" \
             --vlm_mode "$vlm_mode" \
-        --frame_id "$frame_id" \
+            --frame_id "$frame_id" \
 	    --output_mode "$output_mode"
 	done
       done

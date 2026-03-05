@@ -70,12 +70,12 @@ def get_inner_paths_by_method():
     method = request.args.get("method")
     if not all([model, mode, extra, method]):
         return jsonify([])
-    method_path = ROOT_PATH / model / mode / extra / method/ "15"
+    method_path = ROOT_PATH / model / mode / extra / method/ "22"
     inner_paths = []
     if method_path.exists():
         for inner in method_path.iterdir():
             if inner.is_dir():
-                rel_path = "/".join([mode, extra, method, "15", inner.name])
+                rel_path = "/".join([mode, extra, method, "22", inner.name])
                 inner_paths.append(rel_path)
     inner_paths.sort()
     return jsonify(inner_paths)

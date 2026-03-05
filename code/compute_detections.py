@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 def add_prediction(det_file, idx, int_img, x1, y1, x2, y2, group_id, dc, lvl):
     
-    PRED_list = [idx, int_img, x1, y1, x2, y2, group_id, dc, lvl]
+    PRED_list = [idx, int_img, int(x1), int(y1), int(x2), int(y2), group_id, dc, lvl]
     str_to_be_added = [str(k) for k in PRED_list]
     str_to_be_added = (" ".join(str_to_be_added))
     f = open(det_file, "a+")
@@ -18,7 +18,7 @@ def add_prediction(det_file, idx, int_img, x1, y1, x2, y2, group_id, dc, lvl):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select mode, prompt method, model, and VLM mode")
-    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","BLENDER","SEKAI_OURS","SEKAI_OURS_200"], required=True, help="Dataset options")
+    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","BLENDER","SEKAI_OURS","SEKAI_OURS_200", "SEKAI_540_3"], required=True, help="Dataset options")
     parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
     parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D"], default="naive_3D_60FOV", help="Depth method")
     parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p2","p3","p4","p5"], required=True, help="Prompt method")
@@ -42,6 +42,8 @@ if __name__ == '__main__':
     elif args.dataset == 'SEKAI_OURS':
         H, W = 1080, 1920
     elif args.dataset == 'SEKAI_OURS_200':
+        H, W = 1080, 1920
+    elif args.dataset == 'SEKAI_540_3':
         H, W = 1080, 1920
     
     results_folder = f"predictions/{args.dataset}/results" if args.mode == "single" else f"predictions/{args.dataset}/results_{args.mode}"
@@ -77,7 +79,7 @@ if __name__ == '__main__':
     print(args.model)
 
     scenarios = set()
-    det_file = f"detection_files/{args.dataset}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.txt"
+    det_file = f"detection_files/{args.dataset}_{args.frame_id}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.txt"
     det_directory = "/".join(det_file.split('/')[:-1])
     
     if not os.path.exists(det_directory):
@@ -99,14 +101,20 @@ if __name__ == '__main__':
         if args.dataset == 'SEKAI_OURS':
             scenarios.add(scenario)
             number   = 0 # int(split_scenario[-1])
+        elif args.dataset == 'SEKAI_540_3':
+            scenarios.add(scenario)
+            idx   = int(int(scenario.split('_')[-1])) - 1
+            number   = 0
+            dc, int_img, lvl, group_id = 1, (number+1)*1, 1, 1
         else:
             split_scenario = scenario.split('_')
             orig_scenario  = "".join(split_scenario[:-1]) 
             number   = int(split_scenario[-1])
             scenarios.add(orig_scenario)
     
-        dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*15, 1, 1
         
+            dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*15, 1, 1
+
         predicted_groups = []
     
         if 'baseline' in args.prompt_method:
@@ -185,7 +193,7 @@ if __name__ == '__main__':
            
         
             elif args.output_mode == 'finegrained':
-
+    
                 all_persons = set()
                 for group in groups:
                     predicted_group = []

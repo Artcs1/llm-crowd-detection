@@ -286,16 +286,16 @@ def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_
                             height, width, _ = img.shape 
                             img = cv2.rectangle(img, (int(bbox[0]/ 1000 *width), int(bbox[1]/1000*height)), (int(bbox[2]/1000*width), int(bbox[3]/1000*height)), CV2_COLORS[ind%len(CV2_COLORS)], 2)
                         else:
-                            img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
+                            img = cv2.rectangle(img, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), CV2_COLORS[ind%len(CV2_COLORS)], 2)
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
                     if str(person_id) in personid2bbox:
                         xl, yl, x2, y2 = personid2bbox[str(person_id)]
-                        cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
+                        cv2.rectangle(img, (int(xl),int(yl)), (int(x2),int(y2)), CV2_COLORS[i%len(CV2_COLORS)], 2)
                     if person_id in personid2bbox:
                         xl, yl, x2, y2 = personid2bbox[person_id]
-                        cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
+                        cv2.rectangle(img, (int(xl),int(yl)), (int(x2),int(y2)), CV2_COLORS[i%len(CV2_COLORS)], 2)
 
 
 
@@ -327,16 +327,16 @@ def save_full_frame(output, bboxes, res_path, save_filename, frame_path, save_im
                             height, width, _ = img.shape 
                             img = cv2.rectangle(img, (int(bbox[0]/ 1000 *width), int(bbox[1]/1000*height)), (int(bbox[2]/1000*width), int(bbox[3]/1000*height)), CV2_COLORS[ind%len(CV2_COLORS)], 2)
                         else:
-                            img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), CV2_COLORS[ind%len(CV2_COLORS)], 2)
+                            img = cv2.rectangle(img, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), CV2_COLORS[ind%len(CV2_COLORS)], 2)
         else:
             for i, group in enumerate(output['groups']):
                 for person_id in group:
                     if str(person_id) in bboxes[frame_id-1]:
                         xl, yl, x2, y2 = bboxes[frame_id-1][str(person_id)]
-                        cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
+                        cv2.rectangle(img, (int(xl),int(yl)), (int(x2),int(y2)), CV2_COLORS[i%len(CV2_COLORS)], 2)
                     if person_id in bboxes[frame_id-1]:
                         xl, yl, x2, y2 = bboxes[frame_id-1][person_id]
-                        cv2.rectangle(img, (xl,yl), (x2,y2), CV2_COLORS[i%len(CV2_COLORS)], 2)
+                        cv2.rectangle(img, (int(xl),int(yl)), (int(x2),int(y2)), CV2_COLORS[i%len(CV2_COLORS)], 2)
 
         # configure this path                
         res_path = os.path.join(res_path,model.split("/")[1],mode,depth_method,prompt_method,str(frame_id),save_filename,)
