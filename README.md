@@ -12,9 +12,7 @@ conda activate py10-dspy
 ```bash
 conda install -c conda-forge ffmpeg
 conda install -c conda-forge jupyterlab
-pip install vllm
-pip install dspy
-pip install pandas
+pip install -r requirements.txt
 ```
 ### 3. Install Requirements
 

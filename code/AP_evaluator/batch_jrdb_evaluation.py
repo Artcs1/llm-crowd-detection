@@ -6,7 +6,7 @@ import pandas as pd
 
 #groundtruth = "out/gt_group.txt" # CHANGE
 #groundtruth = 'gt_sekai_ours_2.txt'
-groundtruth = 'gt_sekai_ours_22.txt'
+groundtruth = 'out/gt_sekai_ours_22.txt'
 #groundtruth = 'gt_sekai_ours_42.txt'
 task = "task_3"
 labelmap = "./label_map/task_3.pbtxt"
