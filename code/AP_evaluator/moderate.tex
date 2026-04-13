@@ -1,0 +1,65 @@
+\begin{table*}[h!]
+    \centering
+    \footnotesize
+    \caption{Fine-grained performance comparison on dataset for whole video and single frame evaluation. Model combination indicates the backbone family, number of parameters, and modality. Method indicates the processing approach. $G_1$--$G_5$ represent AP scores for group sizes 1--5$^+$, with AP showing the average performance across all groups. Our approach uses metadata (+metadata) for zero-shot evaluation.}
+    \vspace{-0.3cm}
+    \resizebox{0.9\linewidth}{!}{
+    \begin{tabular}{llllcccccccccccc}
+    \toprule
+        & \multirow{2}{*}{Model} &  & \multirow{2}{*}{Method}
+        & \multicolumn{6}{c}{\textbf{Single Frame}}
+        & \multicolumn{6}{c}{\textbf{Video}} \\
+        \cmidrule(lr){5-10} \cmidrule(lr){11-16}
+        & & & & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP \\
+    \midrule
+        \multirow{6}{*}{\rotatebox{90}{Cosmos-Reason2}} & \multirow{3}{*}{2B} & \multirow{2}{*}{VLM} & Atomic & 0.02 & 0.1 & 0.0 & 0.0 & 0.06 & 0.03 & - & - & - & - & - & - \\
+         &  &  & + metadata & 58.4 & 51.44 & 55.98 & 48.75 & 57.55 & 54.42 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 55.68 & 48.81 & 56.9 & 62.92 & 52.45 & 55.35 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{3}{*}{8B} & \multirow{2}{*}{VLM} & Atomic & 0.07 & 0.74 & 0.21 & 0.35 & 0.7 & 0.45 & - & - & - & - & - & - \\
+         &  &  & + metadata & 28.92 & 45.28 & 59.54 & 68.02 & 68.55 & 54.06 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 32.47 & 49.61 & 65.81 & 62.54 & 76.02 & 57.29 & - & - & - & - & - & - \\
+        \multirow{16}{*}{\rotatebox{90}{Qwen2.5}} & \multirow{4}{*}{3B} & \multirow{3}{*}{VLM} & Sequentially & 1.51 & 1.93 & 2.7 & 3.03 & 2.27 & 2.29 & - & - & - & - & - & - \\
+         &  &  & Atomic & 0.61 & 2.33 & 2.59 & 2.69 & 2.63 & 2.17 & - & - & - & - & - & - \\
+         &  &  & + metadata & 38.75 & 61.15 & 68.92 & 61.92 & 56.49 & 57.45 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 57.69 & 69.58 & 64.59 & 53.65 & 49.75 & 59.06 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{4}{*}{7B} & \multirow{3}{*}{VLM} & Sequentially & 1.39 & 4.65 & 5.77 & 3.97 & 5.65 & 4.29 & - & - & - & - & - & - \\
+         &  &  & Atomic & 2.09 & 6.24 & 7.51 & 6.66 & 10.27 & 6.55 & - & - & - & - & - & - \\
+         &  &  & + metadata & \textbf{72.85} & 65.86 & 58.96 & 58.38 & 49.01 & 61.01 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 43.94 & 62.46 & 70.36 & 68.22 & 55.66 & 60.13 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{4}{*}{32B} & \multirow{3}{*}{VLM} & Sequentially & 3.45 & 8.37 & 9.3 & 8.42 & 15.0 & 8.91 & - & - & - & - & - & - \\
+         &  &  & Atomic & 5.47 & 11.33 & 12.73 & 13.2 & 22.64 & 13.07 & - & - & - & - & - & - \\
+         &  &  & + metadata & 30.28 & 62.72 & 77.55 & \textbf{84.21} & 79.38 & 66.83 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 40.49 & 73.14 & 75.28 & 73.02 & 70.62 & 66.51 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{4}{*}{72B} & \multirow{3}{*}{VLM} & Sequentially & 3.88 & 10.7 & 13.07 & 15.12 & 16.82 & 11.92 & - & - & - & - & - & - \\
+         &  &  & Atomic & 9.48 & 18.23 & 17.64 & 19.7 & 25.74 & 18.16 & - & - & - & - & - & - \\
+         &  &  & + metadata & 37.18 & 66.91 & \textbf{79.14} & 78.45 & \textbf{82.76} & \textbf{68.89} & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 38.73 & 73.68 & 76.4 & 71.85 & 69.28 & 65.99 & - & - & - & - & - & - \\
+        \multirow{8}{*}{\rotatebox{90}{Qwen3}} & \multirow{4}{*}{4B} & \multirow{3}{*}{VLM} & Sequentially & 0.8 & 1.57 & 3.99 & 7.31 & 2.56 & 3.24 & - & - & - & - & - & - \\
+         &  &  & Atomic & 2.59 & 5.06 & 4.9 & 8.24 & 5.15 & 5.19 & - & - & - & - & - & - \\
+         &  &  & + metadata & 50.47 & 55.72 & 61.93 & 70.38 & 64.93 & 60.69 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 46.76 & 63.03 & 72.77 & 77.22 & 73.2 & 66.6 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{4}{*}{30B} & \multirow{3}{*}{VLM} & Sequentially & 1.02 & 3.82 & 9.07 & 10.53 & 7.34 & 6.36 & - & - & - & - & - & - \\
+         &  &  & Atomic & 1.48 & 6.69 & 5.36 & 10.31 & 12.22 & 7.21 & - & - & - & - & - & - \\
+         &  &  & + metadata & 50.29 & 66.02 & 71.33 & 71.07 & 70.36 & 65.81 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 54.94 & 69.94 & 71.17 & 72.14 & 70.15 & 67.67 & - & - & - & - & - & - \\
+        \multirow{2}{*}{\rotatebox{90}{Unknown}} & \multirow{2}{*}{Unknown} & \multirow{1}{*}{VLM} & + metadata & 70.37 & \textbf{75.5} & 68.24 & 67.24 & 57.07 & 67.69 & \textbf{70.37} & \textbf{75.5} & \textbf{68.24} & \textbf{67.24} & \textbf{57.07} & \textbf{67.69} \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 60.29 & 74.18 & 73.23 & 70.9 & 62.12 & 68.14 & - & - & - & - & - & - \\
+    \bottomrule
+    \end{tabular}
+    }
+    \label{table:results_merged}
+\end{table*}
