@@ -20,9 +20,9 @@ def main():
     #collected_files = collected_files[::-1]
 
     for current_file in tqdm(collected_files):
-        try:
+        #try:
             #print(current_file)
-        #if True:
+        if True:
             with open(current_file, 'r') as f:
                 data = json.load(f)
         
@@ -41,9 +41,9 @@ def main():
         
             if args.setting == 'single':
                 if args.mode == 'llm' or args.mode =='vlm_text':
-                    output = inference_wrapper(lm, dspy_cot, frame_input_data, args.mode)
+                    output = inference_wrapper(lm, dspy_cot, frame_input_data, args.mode, prompt=args.prompt_method)
                 elif args.mode == 'vlm_image':
-                    output = inference_wrapper(lm, dspy_cot, frame_input_data, args.mode, frame_path)
+                    output = inference_wrapper(lm, dspy_cot, frame_input_data, args.mode, image_path=frame_path, prompt=args.prompt_method)
             elif args.setting == 'full':
                 if args.mode == 'llm' or args.mode == 'vlm_text':
                     output = full_inference_wrapper(lm, dspy_cot, all_frames, args.frame_id, args.mode)
@@ -66,8 +66,8 @@ def main():
                 res_path = 'predictions/'+ args.frame_path.split('/')[-2] + '/results_full'
                 save_full_frame(output, bboxes, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method, args.frame_id)
         
-        except Exception as e:
-            print(f'Fail in: {current_file}, seting: {args.setting},  mode: {args.mode}, model: {args.model}, prompt: {args.prompt_method}')
+        #except Exception as e:
+        #    print(f'Fail in: {current_file}, seting: {args.setting},  mode: {args.mode}, model: {args.model}, prompt: {args.prompt_method}')
     
 if __name__ == "__main__":
     main()

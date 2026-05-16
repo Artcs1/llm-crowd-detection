@@ -10,8 +10,8 @@ dataset=$1
 frame_id=$2
 
 modes=("single" "full")
-prompt_methods=("p1")
-depth_methods=("unidepth_3D")
+prompt_methods=("p1" "p1_bbox")
+depth_methods=("detany_3D")
 vlm_modes=("llm" "vlm_image")
 
 for vlm_mode in "${vlm_modes[@]}"; do

@@ -4,8 +4,8 @@ import dspy
 import json
 import argparse
 
-from prompts import IdentifyGroups, IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive
-from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, vlm_IdentifyGroups_DirectionImage, vlm_IdentifyGroups_TransitiveImage, vlm_IdentifyGroups_DirectionTransitiveImage, baseline2, vlm_IdentifyGroups2DImage, vlm_IdentifyGroups2DText, IdentifyGroups2D
+from prompts import IdentifyGroups, IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive, IdentifyGroups_withbboxes
+from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, vlm_IdentifyGroups_DirectionImage, vlm_IdentifyGroups_TransitiveImage, vlm_IdentifyGroups_DirectionTransitiveImage, baseline2, vlm_IdentifyGroups2DImage, vlm_IdentifyGroups2DText, IdentifyGroups2D, vlm_IdentifyGroupsImage_withbboxes
 from prompts import vlm_IdentifyGroupsText, vlm_IdentifyGroups_DirectionText, vlm_IdentifyGroups_TransitiveText, vlm_IdentifyGroups_DirectionTransitiveText
 
 from prompts import IdentifyGroups_AllFrames, vlm_IdentifyGroups_AllFramesText, vlm_IdentifyGroups_AllFramesImage, vlm_GroupsQAonlyFullImage, full_baseline2
@@ -79,13 +79,20 @@ def full_inference_wrapper(lm, dspy_module, input_text, target_frame, mode='llm'
         res['error'] = output
     return res 
 
-def inference(dspy_module, input_text, mode='llm', image_path='optional'):
+def inference(dspy_module, input_text, mode='llm', image_path='optional', prompt='p1'):
     is_error = False
     try:
-        if mode == 'llm' or mode == 'vlm_text':
-            predictions = dspy_module(detections=input_text)
-        elif mode == 'vlm_image':
-            predictions = dspy_module(image=dspy.Image.from_file(image_path), detections=input_text)
+        if prompt == 'p1_bbox':
+            if mode == 'llm' or mode == 'vlm_text':
+                predictions = dspy_module(boundingboxes=input_text[0], detections=input_text[1])
+            elif mode == 'vlm_image':
+                predictions = dspy_module(image=dspy.Image.from_file(image_path), boundingboxes=input_text[0], detections=input_text[1])
+        else:
+            if mode == 'llm' or mode == 'vlm_text':
+                predictions = dspy_module(detections=input_text)
+            elif mode == 'vlm_image':
+                predictions = dspy_module(image=dspy.Image.from_file(image_path), detections=input_text)
+ 
         output = predictions.groups
     except Exception as e:
         output = str(e)
@@ -93,11 +100,11 @@ def inference(dspy_module, input_text, mode='llm', image_path='optional'):
     return output, is_error
 
 
-def inference_wrapper(lm, dspy_module, input_text, mode='llm', image_path='optional'):
+def inference_wrapper(lm, dspy_module, input_text, mode='llm', image_path='optional', prompt='optional'):
     if mode == 'llm' or mode == 'vlm_text':
-        output, is_error = inference(dspy_module, input_text, mode)
+        output, is_error = inference(dspy_module, input_text, mode, prompt=prompt)
     elif mode == 'vlm_image':
-        output, is_error = inference(dspy_module, input_text, mode, image_path)
+        output, is_error = inference(dspy_module, input_text, mode, image_path=image_path, prompt=prompt)
     #print(output)
     #print(is_error)
     res = {}
@@ -128,6 +135,8 @@ def get_dspy_cot(mode, prompt_method):
             use_direction = True
         elif prompt_method == 'p5':
             dspy_cot = dspy.ChainOfThought(IdentifyGroups2D)
+        elif prompt_method == 'p1_bbox':
+            dspy_cot = dspy.ChainOfThought(IdentifyGroups_withbboxes)
     elif mode == 'vlm_image':
         if prompt_method == 'baseline1':
             dspy_cot = dspy.ChainOfThought(vlm_GroupsQAonlyImage)
@@ -145,19 +154,22 @@ def get_dspy_cot(mode, prompt_method):
             #use_direction = True
         elif prompt_method == 'p5':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups2DImage)
-    elif mode == 'vlm_text':
-        if prompt_method == 'p1':
-            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsText)
-        elif prompt_method == 'p2':
-            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_DirectionText)
-            use_direction = True
-        elif prompt_method == 'p3':
-            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_TransitiveText)
-        elif prompt_method == 'p4':
-            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_DirectionTransitiveText)
-            use_direction = True
-        elif prompt_method == 'p5':
-            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups2DText)
+        elif prompt_method == 'p1_bbox':
+            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsImage_withbboxes)
+
+    #elif mode == 'vlm_text':
+    #    if prompt_method == 'p1':
+    #        dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsText)
+    #    elif prompt_method == 'p2':
+    #        dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_DirectionText)
+    #        use_direction = True
+    #    elif prompt_method == 'p3':
+    #        dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_TransitiveText)
+    #    elif prompt_method == 'p4':
+    #        dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_DirectionTransitiveText)
+    #        use_direction = True
+    #    elif prompt_method == 'p5':
+    #        dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups2DText)
 
     return (dspy_cot, use_direction)
 
@@ -257,12 +269,19 @@ def get_frame_bboxes(data, use_direction, depth_method, frame_id, prompt_method)
         print(f"Frame ID {frame_id} not found in the data.")
         return ([],{})
 
-    frame_input_data = []
+    if prompt_method == 'p1_bbox':
+        frame_input_data = [[],[]]
+    else:
+        frame_input_data = []
+
     personid2bbox = {}
     for i,det in enumerate(frame['detections']):
         personid2bbox[det['track_id']] = det['bbox']
         if prompt_method == 'p5':
-                frame_input_data.append({'person_id': det['track_id'], 'x': (det['bbox'][0]+det['bbox'][2])//2, 'y': (det['bbox'][1]+det['bbox'][3])//2})
+            frame_input_data.append({'person_id': det['track_id'], 'x': (det['bbox'][0]+det['bbox'][2])//2, 'y': (det['bbox'][1]+det['bbox'][3])//2})
+        elif prompt_method == 'p1_bbox':
+            frame_input_data[1].append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4) })
+            frame_input_data[0].append({'person_id': det['track_id'], 't': round(det['bbox'][0],2), 'l': round(det['bbox'][1],2), 'b': round(det['bbox'][2],2), 'r': round(det['bbox'][3],2)})
         else:
             if use_direction:
                 frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4), 'direction':det['direction']})
@@ -371,7 +390,7 @@ def parse_args():
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D'], default='detany_3D')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5','p1_bbox'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)

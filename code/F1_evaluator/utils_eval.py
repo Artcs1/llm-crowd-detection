@@ -642,7 +642,7 @@ class Evaluation:
         keys = self.GT_dict.keys()
         #print(type(keys))
         #print(keys)
-        keys = list(keys)[2::3]
+        #keys = list(keys)[2::3]
         #print(keys)
         #print(keys)
         #print(len(keys))

@@ -18,7 +18,10 @@ def extract_model_info(name):
         modality = 'LLM'
     
     # Determine method
-    if '_p1' in name:
+    print(name)
+    if '_p1_bbox' in name:
+        method = '+ metadata-bbox'
+    elif '_p1' in name:
         method = '+ metadata'
     elif 'baseline2' in name:
         method = 'Sequentially'

@@ -4,17 +4,18 @@
 # depth_methods=("naive_3D_60FOV" "unidepth_3D" "detany_3D") --- try different 3D estimation (x,y,z)
 # modes = ("vlm_image" "llm" "vlm_text") --- mode depending of the LLM
 # prompts = ("p1" "p2" "p3" "p4" "p5" "baseline1" "baseline2") --- different prompts
+# EXAMPLE: bash scripts/batch_fetch_groups_methods_single.bash single detany_3D llm 15
 
 model_name=$1
 api_base=$2
 api_key=$3
 frame_id=$4
 
-#json_path="../../JRDB_fixed_gold/jsons_gold"
-#frame_path="../../JRDB_fixed_gold/videos_frames"
+json_path="../../JRDB_fixed_gold/jsons_gold"
+frame_path="../../JRDB_fixed_gold/videos_frames"
 
-json_path="../../SEKAI_540_3/jsons_step3"
-frame_path="../../SEKAI_540_3/videos_frames"
+#json_path="../../SEKAI_540_3/jsons_step3"
+#frame_path="../../SEKAI_540_3/videos_frames"
 
 if [[ "$model_name" == *"Cosmos"* ]]; then
   modes=("llm" "vlm_image")
@@ -27,7 +28,7 @@ fi
 #modes=("vlm_image")
 types=("single") 
 prompts=("p1")
-depth_methods=("unidepth_3D")
+depth_methods=("detany_3D")
 
 for type in "${types[@]}"; do
   for mode in "${modes[@]}"; do
@@ -39,10 +40,12 @@ for type in "${types[@]}"; do
     fi
     
     if [[ "$mode" == "llm" || "$mode" == "vlm_text" ]]; then
-      prompts=("p1")
+      #prompts=("p1")
+      prompts=("p1" "p1_bbox")
       #prompts=("p1" "p2" "p3" "p4" "p5")
     else
-      prompts=("p1" "baseline1" "baseline2")
+      #prompts=("p1" "baseline1" "baseline2")
+      prompts=("p1" "p1_bbox")
       #prompts=("baseline1")
       #prompts=("baseline2")
       #prompts=("p1" "p2" "p3" "p4" "p5" "baseline1" "baseline2")
@@ -54,6 +57,8 @@ for type in "${types[@]}"; do
       fi
       for depth_method in "${depth_methods[@]}"; do
         echo "Running: $type | $mode | $prompt | $depth_method | max_tokens=$max_tokens"
+
+	echo python3 batch_fetch_groups.py "$json_path" "$type" "$mode" "$model_name" "$frame_id" --depth_method "$depth_method" --prompt_method "$prompt" --api_base "$api_base" --api_key "$api_key" --max_tokens "$max_tokens" --frame_path "$frame_path" --save_image
 
         python3 batch_fetch_groups.py "$json_path" "$type" "$mode" "$model_name" "$frame_id" \
     	  --depth_method "$depth_method" \

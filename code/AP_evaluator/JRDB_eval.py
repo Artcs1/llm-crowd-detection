@@ -241,7 +241,7 @@ def read_labelmap(labelmap_file):
       class_ids.add(class_id)
   return labelmap, class_ids
 
-def evaluate(labelmap, groundtruth, detections, task):
+def evaluate(labelmap, groundtruth, detections, task, mode):
   """Runs evaluations given input files.
   Args:
     seq: the sequence to perform evaluation on.
@@ -265,8 +265,83 @@ def evaluate(labelmap, groundtruth, detections, task):
   
   seq_len+=1
 
-  seqs = [[i] for i in range(seq_len)]
-  seqs = seqs + [[i for i in range(seq_len)]]
+  if mode == 'all':
+    seqs = [[i] for i in range(seq_len)]
+    seqs = seqs + [[i for i in range(seq_len)]]
+  elif mode == 'scattered':
+    seqs = [[i] for i in range(seq_len)]
+    seqs = seqs + [[i for i in range(0,seq_len,3)]]
+  elif mode == 'moderate':
+    seqs = [[i] for i in range(seq_len)]
+    seqs = seqs + [[i for i in range(1,seq_len,3)]]
+  elif mode == 'crowded':
+    seqs = [[i] for i in range(seq_len)]
+    seqs.append([i for i in range(2, seq_len, 3)])
+  elif mode == 'AF':
+    seqs = [[22, 40, 88, 95, 105, 112, 131, 140, 152, 178, 381, 414,
+             454, 485, 497, 518, 533, 551, 575, 594, 613, 681, 685,
+             699, 708]]
+  elif mode == 'AN':
+    seqs = [[0, 3, 4, 6, 13, 14, 15, 24, 27, 31, 35, 37, 38, 39, 42,
+             44, 47, 50, 58, 61, 62, 68, 75, 80, 86, 91, 94, 103, 106,
+             110, 113, 114, 116, 119, 122, 126, 127, 128, 130, 133,
+             134, 136, 142, 147, 148, 149, 151, 154, 158, 159, 165,
+             168, 172, 176, 363, 366, 367, 373, 374, 378, 384, 385,
+             391, 392, 394, 399, 400, 403, 405, 412, 420, 422, 428,
+             434, 437, 439, 448, 450, 451, 458, 463, 464, 466, 468,
+             470, 472, 476, 477, 481, 482, 484, 486, 491, 493, 495,
+             501, 503, 505, 509, 511, 519, 524, 528, 529, 532, 535,
+             536, 540, 541, 545, 547, 555, 557, 559, 561, 565, 567,
+             569, 570, 574, 576, 579, 580, 583, 585, 590, 593, 596,
+             601, 602, 603, 605, 611, 615, 618, 623, 624, 625, 628,
+             629, 630, 632, 635, 636, 643, 656, 660, 662, 664, 668,
+             670, 678, 680, 686, 687, 689, 690, 703, 710, 717, 718,
+             719]]
+  elif mode == 'CA':
+    seqs = [[1, 8, 10, 12, 18, 25, 26, 30, 32, 33, 34, 51, 52, 53,
+             67, 70, 72, 79, 93, 101, 109, 120, 135, 139, 141, 153,
+             156, 161, 162, 163, 166, 167, 170, 171, 177, 179, 180,
+             369, 372, 382, 387, 409, 410, 413, 419, 424, 425, 431,
+             432, 433, 435, 441, 445, 446, 453, 455, 457, 460, 461,
+             462, 469, 474, 475, 478, 480, 488, 492, 494, 508, 516,
+             522, 523, 526, 542, 546, 548, 549, 554, 558, 566, 571,
+             572, 578, 581, 584, 589, 595, 600, 604, 608, 610, 612,
+             614, 616, 619, 621, 626, 633, 634, 637, 638, 640, 641,
+             649, 652, 661, 663, 666, 667, 677, 682, 683, 692, 693,
+             695, 697, 705, 709]]
+  elif mode == 'EU':
+    seqs = [[45, 90, 175, 370, 375, 398, 401, 404, 429, 438, 443, 444,
+             452, 471, 507, 514, 530, 538, 573, 639, 651, 657, 671,
+             711, 716]]
+  elif mode == 'GE':
+    seqs = [[89, 129, 137, 143, 174, 383, 395, 467, 489, 504, 512, 517,
+             527, 597, 659, 684, 691]]
+  elif mode == 'LA':
+    seqs = [[21, 48, 49, 66, 73, 107, 125, 155, 169, 362, 364, 365,
+             368, 371, 376, 380, 390, 479, 496, 498, 506, 510, 553,
+             588, 606, 654, 665, 669, 702]]
+  elif mode == 'LE':
+    seqs = [[5, 9, 19, 69, 71, 87, 100, 102, 111, 115, 146, 386, 389,
+             402, 423, 427, 440, 442, 449, 456, 483, 490, 556, 607,
+             620, 622, 627, 642, 644, 645, 648, 653, 672, 673, 675,
+             688, 694]]
+  elif mode == 'ME':
+    seqs = [[16, 20, 36, 41, 46, 60, 63, 64, 65, 74, 77, 81, 83, 84,
+             96, 97, 98, 104, 121, 123, 138, 173, 361, 396, 397, 411,
+             417, 421, 426, 436, 465, 473, 500, 515, 521, 531, 534,
+             537, 539, 543, 544, 562, 563, 564, 568, 587, 591, 599,
+             647, 650, 655, 674, 701, 713, 714, 715]]
+  elif mode == 'NE':
+    seqs = [[11, 29, 78, 99, 108, 124, 150, 160, 377, 407, 408, 415,
+             418, 447, 499, 520, 525, 560, 592, 598, 609, 617, 631,
+             679, 704, 706]]
+  elif mode == 'SA':
+    seqs = [[2, 7, 23, 28, 43, 54, 55, 56, 57, 59, 76, 82, 85, 92,
+             117, 118, 144, 145, 157, 164, 379, 388, 393, 406, 416,
+             430, 459, 487, 502, 513, 550, 552, 577, 582, 586, 658,
+             696, 700, 707, 712]]
+  elif mode == 'O':
+    seqs = [[17, 132, 646, 676, 698]]
 
   #seqs = [[i for i in range(seq_len)]]
   #print(seqs)
@@ -528,12 +603,14 @@ def parse_arguments():
       default="task_1",
       required=True)
 
+  parser.add_argument('-o', '--output', help='A desired partiion', default="all", required=True)
+
   return parser.parse_args()
 
 def main():
       logging.basicConfig(level=logging.INFO)
       args = parse_arguments()
-      metrics = evaluate(args.labelmap, args.groundtruth, args.detections, args.task)
+      metrics = evaluate(args.labelmap, args.groundtruth, args.detections, args.task, args.output)
       for accuracy in metrics['all'].values():
         print(accuracy)
 
