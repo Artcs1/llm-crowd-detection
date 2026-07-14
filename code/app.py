@@ -97,5 +97,5 @@ def serve_image(filepath):
     return send_from_directory(ROOT_PATH, filepath)
 
 if __name__ == "__main__":
-    app.run(port=8888, debug=True)
+    app.run(port=8889, debug=True)
 

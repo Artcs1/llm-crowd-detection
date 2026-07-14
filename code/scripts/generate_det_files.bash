@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # types = ("single" "full")  --- only predict the target frame 
-# depth_methods=("naive_3D_60FOV" "unidepth_3D" "detany_3D") --- try different 3D estimation (x,y,z)
+# depth_methods=("naive_3D_60FOV" "unidepth_3D" "detany_3D" "wilddet_3D") --- try different 3D estimation (x,y,z)
 # modes = ("vlm_image" "llm" "vlm_text") --- mode depending of the LLM
 # prompts = ("p1" "p2" "p3" "p4" "p5" "baseline1" "baseline2") --- different prompts
 
@@ -11,13 +11,13 @@ output_mode=$2
 frame_id=$3
 
 modes=("single" "full")
-prompt_methods=("p1" "p1_bbox" "baseline1" "baseline2")
-depth_methods=("detany_3D")
+prompt_methods=("p1" "baseline1" "baseline2")
+depth_methods=("unidepth_3D" "detany_3D" "wilddet_3D")
 vlm_modes=("llm" "vlm_image")
 
 for vlm_mode in "${vlm_modes[@]}"; do
   if [[ "$vlm_mode" == "llm" ]]; then
-    models=("Qwen2.5-3B-Instruct" "Qwen2.5-7B-Instruct" "Qwen2.5-32B-Instruct" "Qwen2.5-72B-Instruct" "Qwen3-4B-Instruct-2507" "Qwen3-30B-A3B-Instruct-2507" "Qwen3-235B-A22B-Instruct-2507" "Cosmos-Reason2-8B" "Cosmos-Reason2-2B" "gemini")
+    models=("Qwen2.5-3B-Instruct" "Qwen2.5-7B-Instruct" "Qwen2.5-32B-Instruct" "Qwen2.5-72B-Instruct" "Qwen3-4B-Instruct-2507" "Qwen3-30B-A3B-Instruct-2507" "Qwen3-235B-A22B-Instruct-2507" "Cosmos-Reason2-8B" "Cosmos-Reason2-2B" "gemini" "Qwen2.5-7B-Instruct-SFT" "Qwen2.5-7B-Instruct-RL"  "Qwen2.5-7B-Instruct-RL4" "Qwen2.5-7B-Instruct-RLS4" )
   else
     models=("Qwen2.5-VL-3B-Instruct" "Qwen2.5-VL-7B-Instruct" "Qwen2.5-VL-32B-Instruct" "Qwen2.5-VL-72B-Instruct" "Qwen3-VL-4B-Instruct" "Qwen3-VL-30B-A3B-Instruct" "Qwen3-VL-235B-A22B-Instruct" "Cosmos-Reason2-8B" "Cosmos-Reason2-2B" "gemini")
   fi

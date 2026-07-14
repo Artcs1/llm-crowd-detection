@@ -1,4 +1,4 @@
-vllm
+vlm
 dspy
 pandas
 matplotlib

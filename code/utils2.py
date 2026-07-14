@@ -1,19 +1,19 @@
-import cv2
+import cv2 
 import os
 import dspy
 import json
 import argparse
-from PIL import Image
 
 from ablation_prompts import IdentifyGroups_Direction, IdentifyGroups_Transitive, IdentifyGroups_DirectionTransitive, vlm_IdentifyGroups_DirectionImage, vlm_IdentifyGroups_TransitiveImage, vlm_IdentifyGroups_DirectionTransitiveImage, IdentifyGroups_withbboxes, vlm_IdentifyGroupsImage_withbboxes, vlm_IdentifyGroups2DImage, IdentifyGroups2D, vlm_IdentifyGroups2DText, vlm_IdentifyGroups_DirectionText, vlm_IdentifyGroups_TransitiveText, vlm_IdentifyGroups_DirectionTransitiveText
 
 from prompts import IdentifyGroups
 
-from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, vlm_IdentifyGroupsImage_idsonly, baseline2
+from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, baseline2
 
 from prompts import vlm_IdentifyGroupsText
 
 from prompts import IdentifyGroups_AllFrames, vlm_IdentifyGroups_AllFramesText, vlm_IdentifyGroups_AllFramesImage, vlm_GroupsQAonlyFullImage, full_baseline2
+
 
 CV2_COLORS = [ 
     (0, 0, 255),      # Red
@@ -47,21 +47,18 @@ CV2_COLORS = [
 def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path=''):
     is_error = False
     try:
-        target_frame_data = [input_text[target_frame - 1]]
-
         if mode == 'llm' or mode =='vlm_text':
-            predictions = dspy_module(all_frames=target_frame_data, target_frame=target_frame)
+            predictions = dspy_module(all_frames=input_text, target_frame=target_frame)
         if mode == 'vlm_image':
+            limit = len(input_text)
             image = dspy.Image.from_file(frame_path)
+            video = []
+            for i in range(0,limit,5):
+                img_folder = frame_path[:-10]
+                image_file = f'{img_folder}{str(i+1).zfill(5)}.jpeg'
+                video.append(dspy.Image.from_file(image_file))
 
-            img_folder = frame_path[:-10]
-            step = 3 if target_frame in (22, 42) else 1
-            frame_indices = list(range(1, target_frame + 1, step))
-            if frame_indices[-1] != target_frame:
-                frame_indices.append(target_frame)
-            video = [dspy.Image.from_file(f'{img_folder}{str(i).zfill(5)}.jpeg') for i in frame_indices]
-
-            predictions = dspy_module(image=image, video=video, all_frames=target_frame_data, target_frame = target_frame)
+            predictions = dspy_module(image=image, video=video, all_frames=input_text, target_frame = target_frame)
 
         output = predictions.groups
     except Exception as e:
@@ -87,24 +84,6 @@ def full_inference_wrapper(lm, dspy_module, input_text, target_frame, mode='llm'
         res['error'] = output
     return res 
 
-def draw_bboxes_with_ids(image_path, boundingboxes):
-    """Overlay each person's box (boundingboxes' t/l/b/r pixel corners, see get_frame_bboxes'
-    p1_bbox/p1_visual/p1_visual_only branch) and track id on the frame image, returning a
-    dspy.Image built from the annotated array. Used by inference() for prompt_method='p1_visual'
-    (alongside the numeric 'detections' field) and 'p1_visual_only' (image only, no numeric
-    coordinates at all) so the VLM sees the box/id correspondence visually instead of, or in
-    addition to, the text input."""
-    img = cv2.imread(image_path)
-    color = (255, 0, 0)  # blue (BGR), same for every person
-    for box in boundingboxes:
-        t, l, b, r = box['t'], box['l'], box['b'], box['r']
-        cv2.rectangle(img, (int(t), int(l)), (int(b), int(r)), color, 2)
-        cv2.putText(img, str(box['person_id']), (int(t), max(int(l) - 5, 0)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    return dspy.Image.from_PIL(Image.fromarray(img_rgb))
-
-
 def inference(dspy_module, input_text, mode='llm', image_path='optional', prompt='p1'):
     is_error = False
     try:
@@ -113,17 +92,6 @@ def inference(dspy_module, input_text, mode='llm', image_path='optional', prompt
                 predictions = dspy_module(boundingboxes=input_text[0], detections=input_text[1])
             elif mode == 'vlm_image':
                 predictions = dspy_module(image=dspy.Image.from_file(image_path), boundingboxes=input_text[0], detections=input_text[1])
-        elif prompt == 'p1_visual':
-            if mode == 'llm' or mode == 'vlm_text':
-                predictions = dspy_module(boundingboxes=input_text[0], detections=input_text[1])
-            elif mode == 'vlm_image':
-                annotated_image = draw_bboxes_with_ids(image_path, input_text[0])
-                predictions = dspy_module(image=annotated_image, detections=input_text[1])
-        elif prompt == 'p1_visual_only':
-            if mode == 'vlm_image':
-                annotated_image = draw_bboxes_with_ids(image_path, input_text[0])
-                person_ids = [d['person_id'] for d in input_text[0]]
-                predictions = dspy_module(image=annotated_image, person_ids=person_ids)
         else:
             if mode == 'llm' or mode == 'vlm_text':
                 predictions = dspy_module(detections=input_text)
@@ -142,7 +110,6 @@ def inference_wrapper(lm, dspy_module, input_text, mode='llm', image_path='optio
         output, is_error = inference(dspy_module, input_text, mode, prompt=prompt)
     elif mode == 'vlm_image':
         output, is_error = inference(dspy_module, input_text, mode, image_path=image_path, prompt=prompt)
-
     #print(output)
     #print(is_error)
     res = {}
@@ -182,10 +149,6 @@ def get_dspy_cot(mode, prompt_method):
             dspy_cot = baseline2()
         elif prompt_method == 'p1':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsImage)
-        elif prompt_method == 'p1_visual':
-            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsImage)
-        elif prompt_method == 'p1_visual_only':
-            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsImage_idsonly)
         elif prompt_method == 'p2':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_DirectionImage)
             #use_direction = True
@@ -234,11 +197,12 @@ def get_full_dspy_cot(mode, prompt_method):
 
     return (dspy_cot, use_direction)
 
-def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
+def _get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
 
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'
 
+        
     all_frames, bboxes = [], []
     for frame in data['frames']:
         frame_input_data = []
@@ -253,6 +217,38 @@ def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
                     frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4), 'direction':det['direction']})
                 else:
                     frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4)})
+        all_frames.append(frame_input_data)
+        bboxes.append(personid2bbox)
+
+    return (all_frames, bboxes)
+
+def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
+
+    if data['dataset'] == 'JRDB_gold':
+        depth_method = '3D'
+
+    if 'JRDB' in data['dataset']:
+        mod_number = 5
+        tope = 15 
+        
+    all_frames, bboxes = [], []
+    for idx, frame in enumerate(data['frames']):
+        if (((idx+1) % mod_number == 0 and idx<tope)):# or idx == 0: 
+            frame_input_data = []
+            personid2bbox = {}
+            for i,det in enumerate(frame['detections']):
+                personid2bbox[det['track_id']] = det['bbox']
+                if prompt_method == 'p5':
+                    frame_input_data.append({'person_id': det['track_id'], 'x': (det['bbox'][0]+det['bbox'][2])//2, 'y': (det['bbox'][1]+det['bbox'][3])//2})
+                else:
+                    if use_direction:
+                        frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4), 'direction':det['direction']})
+                    else:
+                        frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4)})
+        else:
+            frame_input_data = []
+            personid2bbox = {}
+
         all_frames.append(frame_input_data)
         bboxes.append(personid2bbox)
 
@@ -278,7 +274,7 @@ def get_frame_bboxes(data, use_direction, depth_method, frame_id, prompt_method)
         print(f"Frame ID {frame_id} not found in the data.")
         return ([],{})
 
-    if prompt_method == 'p1_bbox' or prompt_method == 'p1_visual' or prompt_method == 'p1_visual_only':
+    if prompt_method == 'p1_bbox':
         frame_input_data = [[],[]]
     else:
         frame_input_data = []
@@ -288,7 +284,7 @@ def get_frame_bboxes(data, use_direction, depth_method, frame_id, prompt_method)
         personid2bbox[det['track_id']] = det['bbox']
         if prompt_method == 'p5':
             frame_input_data.append({'person_id': det['track_id'], 'x': (det['bbox'][0]+det['bbox'][2])//2, 'y': (det['bbox'][1]+det['bbox'][3])//2})
-        elif prompt_method == 'p1_bbox' or prompt_method == 'p1_visual' or prompt_method == 'p1_visual_only':
+        elif prompt_method == 'p1_bbox':
             frame_input_data[1].append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4) })
             frame_input_data[0].append({'person_id': det['track_id'], 't': round(det['bbox'][0],2), 'l': round(det['bbox'][1],2), 'b': round(det['bbox'][2],2), 'r': round(det['bbox'][3],2)})
         else:
@@ -324,8 +320,6 @@ def save_frame(output, personid2bbox, res_path, save_filename, frame_path, save_
                     if person_id in personid2bbox:
                         xl, yl, x2, y2 = personid2bbox[person_id]
                         cv2.rectangle(img, (int(xl),int(yl)), (int(x2),int(y2)), CV2_COLORS[i%len(CV2_COLORS)], 2)
-
-
 
         res_path = os.path.join(res_path,model.split("/")[1],mode,depth_method,prompt_method,str(frame_id),save_filename,)
         os.makedirs(res_path, exist_ok=True)
@@ -399,7 +393,7 @@ def parse_args():
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D','wilddet_3D'], default='detany_3D')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5','p1_bbox','p1_visual','p1_visual_only'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5','p1_bbox'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
@@ -498,4 +492,3 @@ def compute_group_bbox(groups, id_to_bbox, return_counts=False):
         return gboxes, counts
     else:
         return gboxes
-

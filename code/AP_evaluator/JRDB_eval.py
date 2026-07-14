@@ -10,6 +10,100 @@ import time
 import numpy as np
 import pprint
 
+country_to_region_globe = {
+    "United Kingdom": "Anglo",
+    "Belgium": "Germanic Europe",
+    "Ireland": "Anglo",
+    "France": "Latin Europe",
+    "Germany": "Germanic Europe",
+    "Portugal": "Latin Europe",
+    "Spain": "Latin Europe",
+    "Italy": "Latin Europe",
+    "Switzerland": "Latin Europe",
+    "Netherlands": "Germanic Europe",
+    "Austria": "Germanic Europe",
+    "Malta": "Latin Europe",
+    "Denmark": "Nordic Europe",
+    "Norway": "Nordic Europe",
+    "Sweden": "Nordic Europe",
+    "Finland": "Nordic Europe",
+    "Iceland": "Nordic Europe",
+    "Greece": "Eastern Europe",
+    "Poland": "Eastern Europe",
+    "Czech Republic": "Eastern Europe",
+    "Slovakia": "Eastern Europe",
+    "Hungary": "Eastern Europe",
+    "Romania": "Latin Europe",
+    "Belarus": "Eastern Europe",
+    "Serbia": "Eastern Europe",
+    "Moldova": "Latin Europe",
+    "Estonia": "Nordic Europe",
+    "Latvia": "Nordic Europe",
+    "United States": "Anglo",
+    "Canada": "Anglo",
+    "Bermuda": "Other",
+    "Mexico": "Latin America",
+    "Brazil": "Latin America",
+    "Chile": "Latin America",
+    "Peru": "Latin America",
+    "Uruguay": "Latin America",
+    "Paraguay": "Latin America",
+    "Colombia": "Latin America",
+    "Costa Rica": "Latin America",
+    "Venezuela": "Latin America",
+    "Jamaica": "African",
+    "Barbados": "African",
+    "Antigua and Barbuda": "African",
+    "Saint Lucia": "Other",
+    "Kenya": "African",
+    "Malawi": "African",
+    "South African": "African",
+    "Nigeria": "African",
+    "Ghana": "African",
+    "Senegal": "African",
+    "Benin": "African",
+    "Madagascar": "African",
+    "Ethiopia": "African",
+    "Eritrea": "African",
+    "Mali": "African",
+    "Gambia": "African",
+    "United Arab Emirates": "Middle East",
+    "Jordan": "Middle East",
+    "Syria": "Middle East",
+    "Iraq": "Middle East",
+    "Lebanon": "Middle East",
+    "Egypt": "Middle East",
+    "Morocco": "Middle East",
+    "Kuwait": "Middle East",
+    "Israel": "Latin Europe",
+    "Turkey": "Middle East",
+    "Afghanistan": "South-East Asia",
+    "India": "South-East Asia",
+    "Pakistan": "South-East Asia",
+    "Bangladesh": "South-East Asia",
+    "Sri Lanka": "South-East Asia",
+    "Nepal": "South-East Asia",
+    "China": "Confucian Asia",
+    "Japan": "Confucian Asia",
+    "South Korea": "Confucian Asia",
+    "Taiwan": "Confucian Asia",
+    "Thailand": "South-East Asia",
+    "Vietnam": "Confucian Asia",
+    "Indonesia": "South-East Asia",
+    "Singapore": "Confucian Asia",
+    "Brunei": "South-East Asia",
+    "Kazakhstan": "Eastern Europe",
+    "Kyrgyzstan": "Eastern Europe",
+    "Tajikistan": "South-East Asia",
+    "Azerbaijan": "Middle East",
+    "Georgia": "Eastern Europe",
+    "Australia": "Anglo",
+    "New Zealand": "Anglo",
+    "Samoa": "South-East Asia",
+    "Holy See": "Other",
+    "South Africa": "African"
+}
+
 try:
     from . import jr
 except:
@@ -158,8 +252,9 @@ def refine_y_pred(y_true, y_pred):
 
   y_pred_refined = np.array(list(map(lambda item: pred_to_true[item], y_pred)))
   return y_pred_refined
-def read_text_file(seq, text_file, is_GT, capacity=0):
-  """Loads boxes and class labels from a text file in the JRDB format and the sequences of data to be evaluated.
+def parse_text_file(text_file, is_GT, capacity=0):
+  """Loads boxes and class labels from a text file in the JRDB format, for every scene present
+  in the file (no scene filtering -- see `select_scenes` for that).
   Args:
     text_file: A file object.
     capacity: Maximum number of labeled boxes allowed for each example.
@@ -186,25 +281,24 @@ def read_text_file(seq, text_file, is_GT, capacity=0):
       for l in r.readlines():
         row = l[:-1].split(' ')
         assert len(row) == 9, "Wrong number of columns: " + row
-        if int(row[0]) in seq:
-          image_key = make_image_key(row[0], row[1])
-          x1, y1, x2, y2 = [float(n) for n in row[2:6]]
-          score = 1.0
-          diff = 0.0
-          g_id = int(row[6])
-          act_id = int(row[7])
+        image_key = make_image_key(row[0], row[1])
+        x1, y1, x2, y2 = [float(n) for n in row[2:6]]
+        score = 1.0
+        diff = 0.0
+        g_id = int(row[6])
+        act_id = int(row[7])
 
-          if is_GT:
-            diff = float(row[8])
-          else:
-            score = float(row[8])
+        if is_GT:
+          diff = float(row[8])
+        else:
+          score = float(row[8])
 
-          if capacity < 1 or len(entries[image_key]) < capacity:
-            heapq.heappush(entries[image_key],
-                         (score, g_id, act_id, diff, y1, x1, y2, x2))
-          elif score > entries[image_key][0][0]:
-            heapq.heapreplace(entries[image_key],
-                            (score, g_id, act_id, diff, y1, x1, y2, x2))
+        if capacity < 1 or len(entries[image_key]) < capacity:
+          heapq.heappush(entries[image_key],
+                       (score, g_id, act_id, diff, y1, x1, y2, x2))
+        elif score > entries[image_key][0][0]:
+          heapq.heapreplace(entries[image_key],
+                          (score, g_id, act_id, diff, y1, x1, y2, x2))
 
       for image_key in entries:
         # Evaluation API assumes boxes with descending scores
@@ -220,6 +314,18 @@ def read_text_file(seq, text_file, is_GT, capacity=0):
           else:
             difficult[image_key].append(0)
   return boxes, g_labels, act_labels, scores, difficult
+def select_scenes(data_dicts, seq_set):
+  """Filters a tuple of image_key-keyed dicts (as returned by `parse_text_file`) down to only the
+  image_keys whose scene id is in `seq_set`. Pure in-memory filter, no file I/O -- lets
+  `parse_text_file` be called once per file and reused across every scene in `evaluate()`'s loop.
+
+  Returns fresh list copies (not references into `data_dicts`) -- evaluate()'s task_2/task_3/task_5
+  branches mutate the per-image_key label lists in place, and those lists must not be shared across
+  different `seq` iterations."""
+  return tuple(
+      {k: list(v) for k, v in d.items() if int(k.split(',')[0]) in seq_set}
+      for d in data_dicts
+  )
 def read_labelmap(labelmap_file):
   """Reads a labelmap.
   Args:
@@ -262,86 +368,113 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
 
   # print(categories)
   # logging.info("CATEGORIES (%d):\n%s", len(categories), pprint.pformat(categories, indent=2))
-  
-  seq_len+=1
 
-  if mode == 'all':
+  import json
+  
+  country_mapping = {
+    "USA": "United States",
+    "UAE": "United Arab Emirates",
+    "Korea": "South Korea",
+    "Czechia": "Czech Republic",
+  }
+  
+  region_modes = {
+    "AF": "African",
+    "AN": "Anglo",
+    "CA": "Confucian Asia",
+    "EU": "Eastern Europe",
+    "GE": "Germanic Europe",
+    "LA": "Latin America",
+    "LE": "Latin Europe",
+    "ME": "Middle East",
+    "NE": "Nordic Europe",
+    "SA": "South-East Asia",
+    "O": "Other",
+  }
+  
+  source_dataset = "/lp-dev/jmurrugarral/gold_SEKAI_900_3/"
+  
+  seq_len += 1
+
+  density_offsets = {"scattered": 0, "moderate": 1, "crowded": 2}
+
+  # True for modes that only ever want the pooled aggregate result (never per-scene entries) --
+  # needed so the aggregate-tagging logic below doesn't mistake a thin (possibly single-scene)
+  # region/region+density subset for a per-scene entry.
+  aggregate_only = False
+
+  if mode == "all":
     seqs = [[i] for i in range(seq_len)]
-    seqs = seqs + [[i for i in range(seq_len)]]
-  elif mode == 'scattered':
+    seqs.append(list(range(seq_len)))
+
+  elif mode == "scattered":
     seqs = [[i] for i in range(seq_len)]
-    seqs = seqs + [[i for i in range(0,seq_len,3)]]
-  elif mode == 'moderate':
+    seqs.append(list(range(0, seq_len, 3)))
+
+  elif mode == "moderate":
     seqs = [[i] for i in range(seq_len)]
-    seqs = seqs + [[i for i in range(1,seq_len,3)]]
-  elif mode == 'crowded':
+    seqs.append(list(range(1, seq_len, 3)))
+
+  elif mode == "crowded":
     seqs = [[i] for i in range(seq_len)]
-    seqs.append([i for i in range(2, seq_len, 3)])
-  elif mode == 'AF':
-    seqs = [[22, 40, 88, 95, 105, 112, 131, 140, 152, 178, 381, 414,
-             454, 485, 497, 518, 533, 551, 575, 594, 613, 681, 685,
-             699, 708]]
-  elif mode == 'AN':
-    seqs = [[0, 3, 4, 6, 13, 14, 15, 24, 27, 31, 35, 37, 38, 39, 42,
-             44, 47, 50, 58, 61, 62, 68, 75, 80, 86, 91, 94, 103, 106,
-             110, 113, 114, 116, 119, 122, 126, 127, 128, 130, 133,
-             134, 136, 142, 147, 148, 149, 151, 154, 158, 159, 165,
-             168, 172, 176, 363, 366, 367, 373, 374, 378, 384, 385,
-             391, 392, 394, 399, 400, 403, 405, 412, 420, 422, 428,
-             434, 437, 439, 448, 450, 451, 458, 463, 464, 466, 468,
-             470, 472, 476, 477, 481, 482, 484, 486, 491, 493, 495,
-             501, 503, 505, 509, 511, 519, 524, 528, 529, 532, 535,
-             536, 540, 541, 545, 547, 555, 557, 559, 561, 565, 567,
-             569, 570, 574, 576, 579, 580, 583, 585, 590, 593, 596,
-             601, 602, 603, 605, 611, 615, 618, 623, 624, 625, 628,
-             629, 630, 632, 635, 636, 643, 656, 660, 662, 664, 668,
-             670, 678, 680, 686, 687, 689, 690, 703, 710, 717, 718,
-             719]]
-  elif mode == 'CA':
-    seqs = [[1, 8, 10, 12, 18, 25, 26, 30, 32, 33, 34, 51, 52, 53,
-             67, 70, 72, 79, 93, 101, 109, 120, 135, 139, 141, 153,
-             156, 161, 162, 163, 166, 167, 170, 171, 177, 179, 180,
-             369, 372, 382, 387, 409, 410, 413, 419, 424, 425, 431,
-             432, 433, 435, 441, 445, 446, 453, 455, 457, 460, 461,
-             462, 469, 474, 475, 478, 480, 488, 492, 494, 508, 516,
-             522, 523, 526, 542, 546, 548, 549, 554, 558, 566, 571,
-             572, 578, 581, 584, 589, 595, 600, 604, 608, 610, 612,
-             614, 616, 619, 621, 626, 633, 634, 637, 638, 640, 641,
-             649, 652, 661, 663, 666, 667, 677, 682, 683, 692, 693,
-             695, 697, 705, 709]]
-  elif mode == 'EU':
-    seqs = [[45, 90, 175, 370, 375, 398, 401, 404, 429, 438, 443, 444,
-             452, 471, 507, 514, 530, 538, 573, 639, 651, 657, 671,
-             711, 716]]
-  elif mode == 'GE':
-    seqs = [[89, 129, 137, 143, 174, 383, 395, 467, 489, 504, 512, 517,
-             527, 597, 659, 684, 691]]
-  elif mode == 'LA':
-    seqs = [[21, 48, 49, 66, 73, 107, 125, 155, 169, 362, 364, 365,
-             368, 371, 376, 380, 390, 479, 496, 498, 506, 510, 553,
-             588, 606, 654, 665, 669, 702]]
-  elif mode == 'LE':
-    seqs = [[5, 9, 19, 69, 71, 87, 100, 102, 111, 115, 146, 386, 389,
-             402, 423, 427, 440, 442, 449, 456, 483, 490, 556, 607,
-             620, 622, 627, 642, 644, 645, 648, 653, 672, 673, 675,
-             688, 694]]
-  elif mode == 'ME':
-    seqs = [[16, 20, 36, 41, 46, 60, 63, 64, 65, 74, 77, 81, 83, 84,
-             96, 97, 98, 104, 121, 123, 138, 173, 361, 396, 397, 411,
-             417, 421, 426, 436, 465, 473, 500, 515, 521, 531, 534,
-             537, 539, 543, 544, 562, 563, 564, 568, 587, 591, 599,
-             647, 650, 655, 674, 701, 713, 714, 715]]
-  elif mode == 'NE':
-    seqs = [[11, 29, 78, 99, 108, 124, 150, 160, 377, 407, 408, 415,
-             418, 447, 499, 520, 525, 560, 592, 598, 609, 617, 631,
-             679, 704, 706]]
-  elif mode == 'SA':
-    seqs = [[2, 7, 23, 28, 43, 54, 55, 56, 57, 59, 76, 82, 85, 92,
-             117, 118, 144, 145, 157, 164, 379, 388, 393, 406, 416,
-             430, 459, 487, 502, 513, 550, 552, 577, 582, 586, 658,
-             696, 700, 707, 712]]
-  elif mode == 'O':
-    seqs = [[17, 132, 646, 676, 698]]
+    seqs.append(list(range(2, seq_len, 3)))
+
+  elif mode in region_modes:
+
+    aggregate_only = True
+
+    target_region = region_modes[mode]
+
+    seqs = [[]]
+
+    for i in range(seq_len):
+
+      json_file = (
+        f"{source_dataset}/jsons_step1/clip_{i+1:04d}.json"
+      )
+
+      with open(json_file, "r") as f:
+        data = json.load(f)
+
+      country = data['country']
+      if country in country_mapping.keys():
+        country = country_mapping[country]
+
+      globe = country_to_region_globe[country]
+
+      if globe == target_region:
+        seqs[0].append(i)
+
+  elif "_" in mode and mode.split("_", 1)[0] in region_modes and mode.split("_", 1)[1] in density_offsets:
+
+    aggregate_only = True
+
+    region_part, density_part = mode.split("_", 1)
+    target_region = region_modes[region_part]
+    target_offset = density_offsets[density_part]
+
+    seqs = [[]]
+
+    for i in range(seq_len):
+
+      if i % 3 != target_offset:
+        continue  # cheap filter first -- skips the JSON open for 2/3 of scenes
+
+      json_file = (
+        f"{source_dataset}/jsons_step1/clip_{i+1:04d}.json"
+      )
+
+      with open(json_file, "r") as f:
+        data = json.load(f)
+
+      country = data['country']
+      if country in country_mapping.keys():
+        country = country_mapping[country]
+
+      globe = country_to_region_globe[country]
+
+      if globe == target_region:
+        seqs[0].append(i)
 
   #seqs = [[i for i in range(seq_len)]]
   #print(seqs)
@@ -349,12 +482,18 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
   #seqs = seqs + [[i for i in range(2,seq_len,3)]]
   #print(seqs)
 
+  # Parse each file exactly once -- previously read_text_file() re-opened and re-parsed the whole
+  # GT/detections file from scratch on every iteration of the loop below (once per scene).
+  all_gt = parse_text_file(groundtruth, True, 0)
+  all_pred = parse_text_file(detections, False, 0)
+
   metrics = {}
   for _, seq in enumerate(seqs):
+      seq_set = set(seq)
       pascal_evaluator = jr.object_detection_evaluation.PascalDetectionEvaluator(categories, task)
 
       # Reads the ground truth data.
-      gt_boxes, gt_g_labels, gt_act_labels,  _, gt_difficult = read_text_file(seq, groundtruth, True, 0)
+      gt_boxes, gt_g_labels, gt_act_labels,  _, gt_difficult = select_scenes(all_gt, seq_set)
 
       for image_key in gt_boxes:
         if task in ['task_1', 'task_4']:
@@ -417,7 +556,7 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
                 })
 
       # Reads detections data.
-      pred_boxes, pred_g_labels, pred_act_labels, pred_scores, _ = read_text_file(seq, detections, False, 0)
+      pred_boxes, pred_g_labels, pred_act_labels, pred_scores, _ = select_scenes(all_pred, seq_set)
 
       for image_key in pred_boxes:
 
@@ -454,7 +593,8 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
                         pred_g_labels[image_key][idx] = 1
 
             if task == 'task_3':
-                if gt_boxes[image_key] == []:
+                #print(gt_boxes)
+                if image_key not in gt_boxes or gt_boxes[image_key] == []:
                     continue
 
                 gt_refine, det_refine, FPs = refine_group_ids(np.array(pred_boxes[image_key], dtype=float), np.array(pred_scores[image_key], dtype=float),
@@ -555,7 +695,7 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
                         np.array(pred_scores[image_key], dtype=float)
                 })
 
-      if len(seq)>1:
+      if aggregate_only or len(seq)>1:
         k = 'all'
       else:
         k = seq[0]

@@ -10,9 +10,6 @@ DETECTOR_LABELS = {
 }
 DETECTOR_ORDER = {'detany': 1, 'unidepth': 2, 'wilddet': 3}
 
-# Number of metric columns: Precision, Recall, AP = 3
-NUM_METRIC_COLS = 3
-
 
 def extract_model_info(name):
     """
@@ -29,11 +26,19 @@ def extract_model_info(name):
     else:
         modality = 'LLM'
 
+    # Detect SFT / RL training-stage suffixes (e.g. "Qwen2.5-7B-Instruct-RL")
+    # so that these variants show up as their own method row under the same
+    # base model family, instead of being tagged as "+ metadata".
+    stage_match = re.search(r'-(SFT|RL)(?:_|$)', name, re.IGNORECASE)
+    stage = stage_match.group(1).upper() if stage_match else None
+
     # Determine method
-    if '_p1_bbox' in name:
+    if stage:
+        method = f'+{stage}'
+    elif '_p1_bbox' in name:
         method = '+ metadata-bbox'
     elif '_p1' in name:
-        method = '+ metadata'
+        method = '+DATA'
     elif 'baseline2' in name:
         method = 'Sequentially'
     elif 'baseline1' in name:
@@ -41,20 +46,28 @@ def extract_model_info(name):
     else:
         method = 'Other'
 
-    # Extract model family and parameters
-    model_match = re.search(r'(Qwen[\d.]+|Cosmos-Reason\d+|gemini-\d)', name)
-    model_family = model_match.group(1) if model_match else 'Unknown'
+    # Extract model family and parameters (case-insensitive so lowercase
+    # filenames like "qwen2.5-7b-groups-grpo" are still captured)
+    model_match = re.search(r'(Qwen[\d.]+|Cosmos-Reason\d+|gemini-\d)', name, re.IGNORECASE)
+    model_family = model_match.group(1) if model_match else None
 
     # Extract parameter size (e.g., 3B, 7B, 32B, 72B, 30B-A3B, 4B)
-    param_match = re.search(r'(\d+B-A\d+B)', name)
+    param_match = re.search(r'(\d+B-A\d+B)', name, re.IGNORECASE)
     if param_match:
         params = param_match.group(1)
     else:
-        param_match = re.search(r'(\d+B)', name)
-        params = param_match.group(1) if param_match else 'Unknown'
+        param_match = re.search(r'(\d+B)', name, re.IGNORECASE)
+        params = param_match.group(1) if param_match else None
+
+    # If either family or params couldn't be parsed, fall back to using the
+    # full (cleaned) filename as the "family" so unrelated/unparseable
+    # filenames never collide with each other or with 'Unknown' entries.
+    if model_family is None or params is None:
+        model_family = name
+        params = 'Unknown'
 
     # Extract detector / depth-source type (detany / unidepth / wilddet)
-    detector_match = re.search(r'_(detany|unidepth|wilddet)_', name, re.IGNORECASE)
+    detector_match = re.search(r'_(detany|unidepth|wilddet)(?:_|$)', name, re.IGNORECASE)
     detector = detector_match.group(1).lower() if detector_match else 'unknown'
 
     return model_family, params, modality, method, detector
@@ -96,7 +109,6 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
     """
     Create a merged LaTeX table with both Single Frame and Video columns,
     scoped to a single detector/depth-source type.
-    Metrics: Precision, Recall, AP (3 columns each section).
     """
 
     have_sf = bool(single_frame_data) and len(single_frame_data) > 1
@@ -105,7 +117,6 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
     if not have_sf and not have_video:
         return ""
 
-    # Organize data, dropping rows that don't belong to this detector
     def organize_data(data):
         organized = {}
         for row in data[1:]:  # Skip header
@@ -118,6 +129,9 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
                 continue
 
             key = (model_family, params, modality, method)
+            if key in organized:
+                print(f"Warning: duplicate key {key} from '{name}' "
+                      f"overwrote a previous entry for detector '{detector_key}'.")
             organized[key] = row[1:]  # Store values
 
         return organized
@@ -129,7 +143,6 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
     if not all_keys:
         return ""
 
-    # Organize by hierarchy for display
     organized_data = {}
     for key in all_keys:
         model_family, params, modality, method = key
@@ -141,8 +154,8 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
 
         organized_data[model_family][params][modality].append({
             'method': method,
-            'single_frame_values': single_frame_org.get(key, [''] * NUM_METRIC_COLS),
-            'video_values': video_org.get(key, [''] * NUM_METRIC_COLS)
+            'single_frame_values': single_frame_org.get(key, [''] * 6),
+            'video_values': video_org.get(key, [''] * 6)
         })
 
     param_order = {
@@ -152,21 +165,21 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
     method_order = {
         'Sequentially': 1,
         'Atomic': 2,
-        '+ metadata': 3,
-        '+ metadata-bbox': 4,
-        'Other': 5
+        '+DATA': 3,
+        '+SFT': 4,
+        '+RL': 5,
+        '+ metadata-bbox': 6,
+        'Other': 7
     }
 
     all_sf_values = [single_frame_org[k] for k in all_keys if k in single_frame_org]
     all_video_values = [video_org[k] for k in all_keys if k in video_org]
 
-    max_sf_values = find_max_values(all_sf_values, 0, NUM_METRIC_COLS) if all_sf_values else [None] * NUM_METRIC_COLS
-    max_video_values = find_max_values(all_video_values, 0, NUM_METRIC_COLS) if all_video_values else [None] * NUM_METRIC_COLS
+    max_sf_values = find_max_values(all_sf_values, 0, 6) if all_sf_values else [None] * 6
+    max_video_values = find_max_values(all_video_values, 0, 6) if all_video_values else [None] * 6
 
     detector_label = DETECTOR_LABELS.get(detector_key, detector_key)
 
-    # Generate LaTeX table
-    # Total data columns: 4 (family, model, modality, method) + 3 (SF) + 3 (Video) = 10
     latex_output = []
 
     latex_output.append("\\begin{table*}[h!]")
@@ -176,22 +189,22 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
         f"    \\caption{{Fine-grained performance comparison using \\textbf{{{detector_label}}} as the "
         "3D detection/depth source, for whole video and single frame evaluation. Model combination indicates "
         "the backbone family, number of parameters, and modality. Method indicates the processing approach. "
-        "Precision, Recall, and AP are reported for each evaluation setting.}"
+        "$G_1$--$G_5$ represent AP scores for group sizes 1--5$^+$, with AP showing the average performance "
+        "across all groups. Our approach uses metadata (+metadata) for zero-shot evaluation.}"
     )
-    latex_output.append("    \\vspace{-0.3cm}")
     latex_output.append("    \\resizebox{0.9\\linewidth}{!}{")
-    latex_output.append("    \\begin{tabular}{llllccccccc}")
+    latex_output.append("    \\begin{tabular}{llllcccccccccccc}")
     latex_output.append("    \\toprule")
 
     latex_output.append("        & \\multirow{2}{*}{Model} &  & \\multirow{2}{*}{Method}")
-    latex_output.append("        & \\multicolumn{3}{c}{\\textbf{Single Frame}}")
-    latex_output.append("        & \\multicolumn{3}{c}{\\textbf{Video}} \\\\")
-    latex_output.append("        \\cmidrule(lr){5-7} \\cmidrule(lr){8-10}")
-    latex_output.append("        & & & & Precision & Recall & AP & Precision & Recall & AP \\\\")
+    latex_output.append("        & \\multicolumn{6}{c}{\\textbf{Single Frame}}")
+    latex_output.append("        & \\multicolumn{6}{c}{\\textbf{Video}} \\\\")
+    latex_output.append("        \\cmidrule(lr){5-10} \\cmidrule(lr){11-16}")
+    latex_output.append("        & & & & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP \\\\")
     latex_output.append("    \\midrule")
 
-    sorted_family_keys = sorted(organized_data.keys())
-    for model_family in sorted_family_keys:
+    sorted_param_keys = sorted(organized_data.keys())
+    for model_family in sorted_param_keys:
         model_params = organized_data[model_family]
 
         total_rows = 0
@@ -200,9 +213,9 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
                 total_rows += len(model_params[params][modality])
 
         first_row = True
-        sorted_params = sorted(model_params.keys(), key=lambda x: param_order.get(x, 999))
+        sorted_params_list = sorted(model_params.keys(), key=lambda x: param_order.get(x, 999))
 
-        for params in sorted_params:
+        for params in sorted_params_list:
             param_data = model_params[params]
             param_rows = len(param_data['VLM']) + len(param_data['LLM'])
             first_param_row = True
@@ -221,7 +234,7 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
 
                     if first_row:
                         model_display = model_family.replace('_', '\\_')
-                        row_parts.append(f"        \\multirow{{{total_rows}}}{{*}}{{\\rotatebox{{90}}{{{model_display}}}}}")
+                        row_parts.append(f"        \\multirow{{{total_rows}}}{{*}}{{\\rotatebox{{10}}{{{model_display}}}}}")
                         first_row = False
                     else:
                         row_parts.append("        ")
@@ -240,11 +253,11 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
 
                     row_parts.append(f"& {entry['method']}")
 
-                    for i, val in enumerate(entry['single_frame_values'][:NUM_METRIC_COLS]):
+                    for i, val in enumerate(entry['single_frame_values']):
                         formatted_val = format_value(val, max_sf_values[i]) if val else '-'
                         row_parts.append(f"& {formatted_val}")
 
-                    for i, val in enumerate(entry['video_values'][:NUM_METRIC_COLS]):
+                    for i, val in enumerate(entry['video_values']):
                         formatted_val = format_value(val, max_video_values[i]) if val else '-'
                         row_parts.append(f"& {formatted_val}")
 
@@ -253,8 +266,11 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
                 if modality == 'VLM' and param_data['LLM']:
                     latex_output.append("        \\addlinespace")
 
-            if params != sorted_params[-1]:
-                latex_output.append("        \\cmidrule(lr){3-10}")
+            if params != sorted_params_list[-1]:
+                latex_output.append("        \\cmidrule(lr){3-16}")
+
+        if model_family != sorted_param_keys[-1]:
+            latex_output.append("        \\hline")
 
     latex_output.append("    \\bottomrule")
     latex_output.append("    \\end{tabular}")
@@ -266,13 +282,6 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
 
 
 def csv_to_latex(input_file, output_file='table.tex'):
-    """
-    Convert a CSV file to three separate LaTeX tables, one per detector/depth
-    source (DetAny3D, UniDepth, WildDet3D), each written into the same .tex
-    file as its own standalone table environment.
-    Expected CSV columns: name, Precision, Recall, AP
-    """
-
     try:
         with open(input_file, 'r') as f:
             reader = csv.reader(f)
@@ -289,8 +298,8 @@ def csv_to_latex(input_file, output_file='table.tex'):
         return
 
     header = data[0]
-    video_data = [header]        # results_full_*  -> Video
-    single_frame_data = [header]  # results_*        -> Single Frame
+    video_data = [header]
+    single_frame_data = [header]
 
     for row in data[1:]:
         if len(row) > 0:
@@ -300,7 +309,6 @@ def csv_to_latex(input_file, output_file='table.tex'):
             elif name.startswith('results_'):
                 single_frame_data.append(row)
 
-    # Which detector types are actually present in the data
     detectors_present = set()
     for row in data[1:]:
         if len(row) > 0:

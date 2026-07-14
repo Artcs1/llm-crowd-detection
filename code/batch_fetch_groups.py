@@ -21,13 +21,13 @@ def main():
 
     for current_file in tqdm(collected_files):
         #try:
-            #print(current_file)
+        #    #print(current_file)
         if True:
             with open(current_file, 'r') as f:
                 data = json.load(f)
         
             lm = dspy.LM('openai/'+args.model, api_key=args.api_key, api_base=args.api_base, temperature=args.temperature, max_tokens=args.max_tokens)
-            dspy.configure(lm=lm)
+            dspy.configure(lm=lm, adapter = dspy.JSONAdapter())
             
             if args.setting == 'single':
                 dspy_cot, use_direction = get_dspy_cot(args.mode, args.prompt_method)
@@ -59,13 +59,14 @@ def main():
         
             if args.setting == 'single':
                 output['id_tobbox'] = personid2bbox
-                res_path = 'predictions/'+ args.frame_path.split('/')[-2] + '/results'
+                res_path = '../results/predictions/'+ args.frame_path.split('/')[-2] + '/results'
                 save_frame(output, personid2bbox, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method, args.frame_id)
             elif args.setting == 'full':
                 output['id_tobbox'] = bboxes[args.frame_id-1]
-                res_path = 'predictions/'+ args.frame_path.split('/')[-2] + '/results_full'
+                res_path = '../results/predictions/'+ args.frame_path.split('/')[-2] + '/results_full'
                 save_full_frame(output, bboxes, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method, args.frame_id)
         
+
         #except Exception as e:
         #    print(f'Fail in: {current_file}, seting: {args.setting},  mode: {args.mode}, model: {args.model}, prompt: {args.prompt_method}')
     

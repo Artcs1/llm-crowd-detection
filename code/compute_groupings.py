@@ -8,9 +8,9 @@ from tqdm import tqdm
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select mode, prompt method, model, and VLM mode")
-    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","BLENDER","SEKAI_OURS","SEKAI_OURS_200","SEKAI_540_3"], required=True, help="Dataset options")
+    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","BLENDER","SEKAI_OURS","SEKAI_OURS_200","SEKAI_540_3","gold_SEKAI_900_3"], required=True, help="Dataset options")
     parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
-    parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D"], default="naive_3D_60FOV", help="Depth method")
+    parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D","wilddet_3D"], default="naive_3D_60FOV", help="Depth method")
     parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p1_bbox","p2","p3","p4","p5"], required=True, help="Prompt method")
     parser.add_argument("--model", type=str, required=True, help="Specify the model name or path")
     parser.add_argument("--vlm_mode", type=str, choices=["llm","vlm_image","vlm_text"], required=True, help="VLM mode: image or text")
@@ -34,8 +34,10 @@ if __name__ == '__main__':
         H, W = 1080, 1920
     elif args.dataset == 'SEKAI_540_3':
         H, W = 1080, 1920
+    elif args.dataset == 'gold_SEKAI_900_3':
+        H, W = 1080, 1920
     
-    results_folder = f"predictions/{args.dataset}/results" if args.mode == "single" else f"predictions/{args.dataset}/results_{args.mode}"
+    results_folder = f"../results/predictions/{args.dataset}/results" if args.mode == "single" else f"../results/predictions/{args.dataset}/results_{args.mode}"
     
     path = os.path.join(
         base_dir,
@@ -57,7 +59,7 @@ if __name__ == '__main__':
     print(args.model)
     scenarios = set()
 
-    det_file = f"grouping_files/{args.dataset}_{args.frame_id}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.pkl"
+    det_file = f"../results/grouping_files/{args.dataset}_{args.frame_id}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.pkl"
     det_directory = "/".join(det_file.split('/')[:-1])
     
     if not os.path.exists(det_directory):
@@ -78,7 +80,7 @@ if __name__ == '__main__':
     
         scenario       = last[-1]
 
-        if args.dataset == 'SEKAI_540_3':
+        if args.dataset == 'SEKAI_540_3' or 'gold_SEKAI_900_3':
             scenarios.add(scenario)
             idx   = int(int(scenario.split('_')[-1])) - 1
             number   = 0
@@ -116,7 +118,8 @@ if __name__ == '__main__':
  
     #print(results)
     if results:
-        save_path = f"grouping_files/{args.dataset}_{args.frame_id}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.pkl"
+        save_path = f"../results/grouping_files/{args.dataset}_{args.frame_id}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.pkl"
+        print('save_path:', save_path)
         with open(save_path, "wb") as f:
             pickle.dump(results, f)
 

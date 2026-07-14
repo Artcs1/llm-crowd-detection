@@ -1,0 +1,146 @@
+\begin{table*}[h!]
+    \centering
+    \footnotesize
+    \caption{Fine-grained performance comparison using \textbf{DetAny3D} as the 3D detection/depth source, for whole video and single frame evaluation. Model combination indicates the backbone family, number of parameters, and modality. Method indicates the processing approach. Precision, Recall, and AP are reported for each evaluation setting.}
+    \vspace{-0.3cm}
+    \resizebox{0.9\linewidth}{!}{
+    \begin{tabular}{llllccccccc}
+    \toprule
+        & \multirow{2}{*}{Model} &  & \multirow{2}{*}{Method}
+        & \multicolumn{3}{c}{\textbf{Single Frame}}
+        & \multicolumn{3}{c}{\textbf{Video}} \\
+        \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+        & & & & Precision & Recall & AP & Precision & Recall & AP \\
+    \midrule
+        \multirow{4}{*}{\rotatebox{90}{Cosmos-Reason2}} & \multirow{2}{*}{2B} & \multirow{1}{*}{VLM} & + metadata & 23.29 & 13.21 & 16.86 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 16.36 & 9.4 & 11.94 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{8B} & \multirow{1}{*}{VLM} & + metadata & 8.06 & 6.17 & 6.99 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 5.11 & 3.88 & 4.41 & - & - & - \\
+        \multirow{8}{*}{\rotatebox{90}{Qwen2.5}} & \multirow{2}{*}{3B} & \multirow{1}{*}{VLM} & + metadata & \textbf{27.14} & \textbf{28.48} & \textbf{27.79} & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 14.08 & 14.68 & 14.38 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{7B} & \multirow{1}{*}{VLM} & + metadata & 23.45 & 21.14 & 22.24 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 6.83 & 5.93 & 6.35 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{32B} & \multirow{1}{*}{VLM} & + metadata & 5.64 & 4.4 & 4.95 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 5.3 & 5.87 & 5.57 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{72B} & \multirow{1}{*}{VLM} & + metadata & 8.81 & 7.69 & 8.21 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 4.46 & 5.28 & 4.84 & - & - & - \\
+        \multirow{4}{*}{\rotatebox{90}{Qwen3}} & \multirow{2}{*}{4B} & \multirow{1}{*}{VLM} & + metadata & 9.43 & 4.76 & 6.32 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 5.01 & 3.82 & 4.33 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{30B-A3B} & \multirow{1}{*}{VLM} & + metadata & 4.31 & 3.93 & 4.11 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 4.69 & 4.64 & 4.66 & - & - & - \\
+    \bottomrule
+    \end{tabular}
+    }
+    \label{table:results_detany}
+\end{table*}
+
+\begin{table*}[h!]
+    \centering
+    \footnotesize
+    \caption{Fine-grained performance comparison using \textbf{UniDepth} as the 3D detection/depth source, for whole video and single frame evaluation. Model combination indicates the backbone family, number of parameters, and modality. Method indicates the processing approach. Precision, Recall, and AP are reported for each evaluation setting.}
+    \vspace{-0.3cm}
+    \resizebox{0.9\linewidth}{!}{
+    \begin{tabular}{llllccccccc}
+    \toprule
+        & \multirow{2}{*}{Model} &  & \multirow{2}{*}{Method}
+        & \multicolumn{3}{c}{\textbf{Single Frame}}
+        & \multicolumn{3}{c}{\textbf{Video}} \\
+        \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+        & & & & Precision & Recall & AP & Precision & Recall & AP \\
+    \midrule
+        \multirow{4}{*}{\rotatebox{90}{Cosmos-Reason2}} & \multirow{2}{*}{2B} & \multirow{1}{*}{VLM} & + metadata & 24.31 & 15.13 & 18.61 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 15.95 & 8.89 & 11.42 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{8B} & \multirow{1}{*}{VLM} & + metadata & 8.86 & 7.29 & 7.99 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 7.53 & 6.0 & 6.68 & - & - & - \\
+        \multirow{8}{*}{\rotatebox{90}{Qwen2.5}} & \multirow{2}{*}{3B} & \multirow{1}{*}{VLM} & + metadata & \textbf{27.59} & \textbf{30.51} & \textbf{28.96} & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 14.29 & 17.31 & 15.65 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{7B} & \multirow{1}{*}{VLM} & + metadata & 23.11 & 22.15 & 22.5 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 7.1 & 6.58 & 6.83 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{32B} & \multirow{1}{*}{VLM} & + metadata & 7.36 & 6.28 & 6.78 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 6.32 & 7.54 & 6.87 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{72B} & \multirow{1}{*}{VLM} & + metadata & 9.14 & 8.71 & 8.91 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 5.98 & 7.38 & 6.6 & - & - & - \\
+        \multirow{4}{*}{\rotatebox{90}{Qwen3}} & \multirow{2}{*}{4B} & \multirow{1}{*}{VLM} & + metadata & 10.46 & 5.94 & 7.57 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 7.78 & 6.08 & 6.82 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{30B-A3B} & \multirow{1}{*}{VLM} & + metadata & 6.68 & 6.7 & 6.69 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 6.78 & 6.43 & 6.6 & - & - & - \\
+    \bottomrule
+    \end{tabular}
+    }
+    \label{table:results_unidepth}
+\end{table*}
+
+\begin{table*}[h!]
+    \centering
+    \footnotesize
+    \caption{Fine-grained performance comparison using \textbf{WildDet3D} as the 3D detection/depth source, for whole video and single frame evaluation. Model combination indicates the backbone family, number of parameters, and modality. Method indicates the processing approach. Precision, Recall, and AP are reported for each evaluation setting.}
+    \vspace{-0.3cm}
+    \resizebox{0.9\linewidth}{!}{
+    \begin{tabular}{llllccccccc}
+    \toprule
+        & \multirow{2}{*}{Model} &  & \multirow{2}{*}{Method}
+        & \multicolumn{3}{c}{\textbf{Single Frame}}
+        & \multicolumn{3}{c}{\textbf{Video}} \\
+        \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+        & & & & Precision & Recall & AP & Precision & Recall & AP \\
+    \midrule
+        \multirow{4}{*}{\rotatebox{90}{Cosmos-Reason2}} & \multirow{2}{*}{2B} & \multirow{1}{*}{VLM} & + metadata & 24.52 & 14.39 & 18.13 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 17.41 & 9.4 & 12.2 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{8B} & \multirow{1}{*}{VLM} & + metadata & 7.96 & 6.28 & 7.02 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 6.55 & 5.11 & 5.74 & - & - & - \\
+        \multirow{8}{*}{\rotatebox{90}{Qwen2.5}} & \multirow{2}{*}{3B} & \multirow{1}{*}{VLM} & + metadata & \textbf{28.19} & \textbf{31.36} & \textbf{29.69} & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 13.2 & 15.44 & 14.24 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{7B} & \multirow{1}{*}{VLM} & + metadata & 23.26 & 21.73 & 22.47 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 5.28 & 4.7 & 4.97 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{32B} & \multirow{1}{*}{VLM} & + metadata & 5.51 & 4.4 & 4.9 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 5.2 & 5.75 & 5.46 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{72B} & \multirow{1}{*}{VLM} & + metadata & 8.74 & 8.1 & 8.41 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 4.07 & 4.82 & 4.41 & - & - & - \\
+        \multirow{4}{*}{\rotatebox{90}{Qwen3}} & \multirow{2}{*}{4B} & \multirow{1}{*}{VLM} & + metadata & 9.44 & 4.46 & 6.06 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 5.59 & 4.23 & 4.82 & - & - & - \\
+        \cmidrule(lr){3-10}
+         & \multirow{2}{*}{30B-A3B} & \multirow{1}{*}{VLM} & + metadata & 5.11 & 4.64 & 4.86 & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & + metadata & 5.6 & 4.93 & 5.25 & - & - & - \\
+    \bottomrule
+    \end{tabular}
+    }
+    \label{table:results_wilddet}
+\end{table*}

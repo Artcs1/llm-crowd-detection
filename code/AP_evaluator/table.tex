@@ -1,0 +1,159 @@
+\begin{table*}[h!]
+    \centering
+    \footnotesize
+    \caption{Fine-grained performance comparison using \textbf{DetAny3D} as the 3D detection/depth source, for whole video and single frame evaluation. Model combination indicates the backbone family, number of parameters, and modality. Method indicates the processing approach. $G_1$--$G_5$ represent AP scores for group sizes 1--5$^+$, with AP showing the average performance across all groups. Our approach uses metadata (+metadata) for zero-shot evaluation.}
+    \resizebox{0.9\linewidth}{!}{
+    \begin{tabular}{llllcccccccccccc}
+    \toprule
+        & \multirow{2}{*}{Model} &  & \multirow{2}{*}{Method}
+        & \multicolumn{6}{c}{\textbf{Single Frame}}
+        & \multicolumn{6}{c}{\textbf{Video}} \\
+        \cmidrule(lr){5-10} \cmidrule(lr){11-16}
+        & & & & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP \\
+    \midrule
+        \multirow{4}{*}{\rotatebox{10}{Cosmos-Reason2}} & \multirow{2}{*}{2B} & \multirow{1}{*}{VLM} & +DATA & 51.7 & 42.37 & 45.59 & 47.56 & 49.91 & 47.43 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 49.87 & 43.08 & 46.96 & 51.34 & 51.12 & 48.48 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{8B} & \multirow{1}{*}{VLM} & +DATA & 33.68 & 46.13 & 55.77 & 62.27 & 66.1 & 52.79 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 39.66 & 47.07 & 57.47 & 61.82 & 63.94 & 53.99 & - & - & - & - & - & - \\
+        \hline
+        \multirow{10}{*}{\rotatebox{10}{Qwen2.5}} & \multirow{2}{*}{3B} & \multirow{1}{*}{VLM} & +DATA & 40.81 & 42.13 & 44.88 & 45.67 & 45.01 & 43.7 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 55.94 & 47.07 & 44.28 & 39.48 & 38.59 & 45.07 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{4}{*}{7B} & \multirow{1}{*}{VLM} & +DATA & 72.69 & 49.09 & 40.4 & 37.47 & 32.79 & 46.48 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{3}{*}{LLM} & +DATA & 35.14 & 50.25 & 58.09 & 60.5 & 52.53 & 51.3 & - & - & - & - & - & - \\
+         &  &  & +SFT & 81.99 & 63.5 & 55.02 & 47.94 & 37.29 & 57.15 & - & - & - & - & - & - \\
+         &  &  & +RL & \textbf{83.84} & \textbf{64.61} & 54.82 & 48.59 & 38.28 & 58.03 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{32B} & \multirow{1}{*}{VLM} & +DATA & 19.72 & 45.4 & 64.11 & \textbf{75.0} & 74.97 & 55.84 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 33.96 & 58.81 & 67.92 & 71.64 & 64.47 & 59.36 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{72B} & \multirow{1}{*}{VLM} & +DATA & 25.08 & 50.68 & 66.34 & 73.46 & \textbf{77.68} & 58.65 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 34.9 & 62.48 & 70.48 & 71.8 & 62.74 & 60.48 & - & - & - & - & - & - \\
+        \hline
+        \multirow{4}{*}{\rotatebox{10}{Qwen3}} & \multirow{2}{*}{4B} & \multirow{1}{*}{VLM} & +DATA & 41.9 & 42.68 & 54.13 & 63.33 & 66.46 & 53.7 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 33.32 & 51.25 & 63.57 & 69.12 & 64.76 & 56.4 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{30B-A3B} & \multirow{1}{*}{VLM} & +DATA & 54.21 & 60.09 & 66.99 & 67.54 & 60.83 & \textbf{61.93} & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 36.69 & 59.57 & \textbf{71.48} & 71.88 & 68.51 & 61.62 & - & - & - & - & - & - \\
+    \bottomrule
+    \end{tabular}
+    }
+    \label{table:results_detany}
+\end{table*}
+
+\begin{table*}[h!]
+    \centering
+    \footnotesize
+    \caption{Fine-grained performance comparison using \textbf{UniDepth} as the 3D detection/depth source, for whole video and single frame evaluation. Model combination indicates the backbone family, number of parameters, and modality. Method indicates the processing approach. $G_1$--$G_5$ represent AP scores for group sizes 1--5$^+$, with AP showing the average performance across all groups. Our approach uses metadata (+metadata) for zero-shot evaluation.}
+    \resizebox{0.9\linewidth}{!}{
+    \begin{tabular}{llllcccccccccccc}
+    \toprule
+        & \multirow{2}{*}{Model} &  & \multirow{2}{*}{Method}
+        & \multicolumn{6}{c}{\textbf{Single Frame}}
+        & \multicolumn{6}{c}{\textbf{Video}} \\
+        \cmidrule(lr){5-10} \cmidrule(lr){11-16}
+        & & & & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP \\
+    \midrule
+        \multirow{6}{*}{\rotatebox{10}{Cosmos-Reason2}} & \multirow{3}{*}{2B} & \multirow{2}{*}{VLM} & Atomic & 0.32 & 1.02 & 1.49 & 2.18 & 0.67 & 1.14 & - & - & - & - & - & - \\
+         &  &  & +DATA & 47.16 & 40.59 & 44.65 & 50.11 & 55.44 & 47.59 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 46.86 & 41.48 & 46.54 & 51.47 & 45.99 & 46.47 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{3}{*}{8B} & \multirow{2}{*}{VLM} & Atomic & 0.99 & 9.33 & 5.99 & 8.66 & 7.39 & 6.47 & - & - & - & - & - & - \\
+         &  &  & +DATA & 30.29 & 44.43 & 56.5 & 66.53 & 68.37 & 53.22 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 37.41 & 47.79 & 60.25 & 67.2 & 63.27 & 55.19 & - & - & - & - & - & - \\
+        \hline
+        \multirow{10}{*}{\rotatebox{10}{Qwen2.5}} & \multirow{2}{*}{3B} & \multirow{1}{*}{VLM} & +DATA & 39.41 & 41.41 & 44.89 & 44.16 & 45.89 & 43.15 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 54.01 & 46.47 & 44.64 & 41.54 & 36.14 & 44.56 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{4}{*}{7B} & \multirow{1}{*}{VLM} & +DATA & 73.16 & 49.53 & 39.65 & 35.54 & 30.44 & 45.66 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{3}{*}{LLM} & +DATA & 33.8 & 50.04 & 55.97 & 60.5 & 55.99 & 51.26 & - & - & - & - & - & - \\
+         &  &  & +SFT & 80.23 & 62.44 & 53.85 & 48.89 & 37.92 & 56.66 & - & - & - & - & - & - \\
+         &  &  & +RL & \textbf{81.62} & 63.22 & 53.36 & 49.2 & 35.0 & 56.47 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{32B} & \multirow{1}{*}{VLM} & +DATA & 19.04 & 47.34 & 65.77 & 73.92 & 75.55 & 56.33 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 31.9 & 61.85 & 70.44 & 71.02 & 62.77 & 59.6 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{72B} & \multirow{1}{*}{VLM} & +DATA & 24.95 & 53.1 & 67.57 & 73.87 & \textbf{76.71} & 59.24 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 31.54 & \textbf{65.35} & \textbf{74.45} & \textbf{77.23} & 64.02 & 62.52 & - & - & - & - & - & - \\
+        \hline
+        \multirow{6}{*}{\rotatebox{10}{Qwen3}} & \multirow{3}{*}{4B} & \multirow{2}{*}{VLM} & Atomic & 6.02 & 21.83 & 21.55 & 21.12 & 17.49 & 17.6 & - & - & - & - & - & - \\
+         &  &  & +DATA & 38.14 & 42.74 & 56.62 & 64.4 & 71.34 & 54.65 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 33.41 & 50.79 & 62.56 & 69.14 & 65.23 & 56.23 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{3}{*}{30B-A3B} & \multirow{2}{*}{VLM} & Atomic & 3.45 & 13.38 & 11.96 & 27.29 & 17.5 & 14.72 & - & - & - & - & - & - \\
+         &  &  & +DATA & 43.22 & 59.93 & 70.62 & 72.8 & 66.41 & 62.6 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 46.49 & 64.37 & 72.67 & 75.53 & 65.12 & \textbf{64.84} & - & - & - & - & - & - \\
+    \bottomrule
+    \end{tabular}
+    }
+    \label{table:results_unidepth}
+\end{table*}
+
+\begin{table*}[h!]
+    \centering
+    \footnotesize
+    \caption{Fine-grained performance comparison using \textbf{WildDet3D} as the 3D detection/depth source, for whole video and single frame evaluation. Model combination indicates the backbone family, number of parameters, and modality. Method indicates the processing approach. $G_1$--$G_5$ represent AP scores for group sizes 1--5$^+$, with AP showing the average performance across all groups. Our approach uses metadata (+metadata) for zero-shot evaluation.}
+    \resizebox{0.9\linewidth}{!}{
+    \begin{tabular}{llllcccccccccccc}
+    \toprule
+        & \multirow{2}{*}{Model} &  & \multirow{2}{*}{Method}
+        & \multicolumn{6}{c}{\textbf{Single Frame}}
+        & \multicolumn{6}{c}{\textbf{Video}} \\
+        \cmidrule(lr){5-10} \cmidrule(lr){11-16}
+        & & & & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP & G$_{1}$ & G$_{2}$ & G$_{3}$ & G$_{4}$ & G$_{5}$ & AP \\
+    \midrule
+        \multirow{4}{*}{\rotatebox{10}{Cosmos-Reason2}} & \multirow{2}{*}{2B} & \multirow{1}{*}{VLM} & +DATA & 48.26 & 41.81 & 45.32 & 51.23 & 54.71 & 48.27 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 48.3 & 42.37 & 46.77 & 50.61 & 52.66 & 48.14 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{8B} & \multirow{1}{*}{VLM} & +DATA & 32.98 & 46.11 & 55.01 & 63.54 & 70.62 & 53.65 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 39.14 & 48.77 & 56.5 & 60.65 & 71.36 & 55.28 & - & - & - & - & - & - \\
+        \hline
+        \multirow{10}{*}{\rotatebox{10}{Qwen2.5}} & \multirow{2}{*}{3B} & \multirow{1}{*}{VLM} & +DATA & 41.08 & 42.17 & 44.31 & 45.45 & 38.89 & 42.38 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 56.24 & 47.16 & 43.58 & 41.08 & 42.61 & 46.13 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{4}{*}{7B} & \multirow{1}{*}{VLM} & +DATA & 72.7 & 49.1 & 41.08 & 34.62 & 31.31 & 45.76 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{3}{*}{LLM} & +DATA & 35.86 & 50.0 & 57.36 & 56.9 & 55.66 & 51.16 & - & - & - & - & - & - \\
+         &  &  & +SFT & 82.13 & 63.38 & 54.41 & 47.55 & 36.75 & 56.85 & - & - & - & - & - & - \\
+         &  &  & +RL & \textbf{84.14} & \textbf{63.75} & 54.97 & 47.85 & 35.12 & 57.16 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{32B} & \multirow{1}{*}{VLM} & +DATA & 19.68 & 46.65 & 65.29 & \textbf{74.15} & 78.53 & 56.86 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 32.88 & 59.07 & 68.31 & 70.58 & 64.59 & 59.09 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{72B} & \multirow{1}{*}{VLM} & +DATA & 24.44 & 51.58 & 66.51 & 72.23 & \textbf{80.63} & 59.08 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 34.19 & 61.92 & \textbf{71.86} & 70.58 & 62.78 & 60.27 & - & - & - & - & - & - \\
+        \hline
+        \multirow{4}{*}{\rotatebox{10}{Qwen3}} & \multirow{2}{*}{4B} & \multirow{1}{*}{VLM} & +DATA & 39.16 & 42.38 & 56.28 & 62.52 & 75.52 & 55.17 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 34.37 & 49.63 & 61.08 & 66.85 & 66.99 & 55.78 & - & - & - & - & - & - \\
+        \cmidrule(lr){3-16}
+         & \multirow{2}{*}{30B-A3B} & \multirow{1}{*}{VLM} & +DATA & 52.01 & 60.76 & 67.59 & 65.79 & 62.17 & 61.67 & - & - & - & - & - & - \\
+        \addlinespace
+         &  & \multirow{1}{*}{LLM} & +DATA & 51.97 & 63.17 & 70.47 & 70.79 & 63.08 & \textbf{63.9} & - & - & - & - & - & - \\
+    \bottomrule
+    \end{tabular}
+    }
+    \label{table:results_wilddet}
+\end{table*}
