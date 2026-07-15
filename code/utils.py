@@ -1,4 +1,5 @@
 import cv2
+import math
 import os
 import dspy
 import json
@@ -13,7 +14,7 @@ from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, vlm_Identify
 
 from prompts import vlm_IdentifyGroupsText
 
-from prompts import IdentifyGroups_AllFrames, vlm_IdentifyGroups_AllFramesText, vlm_IdentifyGroups_AllFramesImage, vlm_GroupsQAonlyFullImage, full_baseline2
+from prompts import IdentifyGroups_AllFrames, vlm_IdentifyGroups_AllFramesText, vlm_IdentifyGroups_AllFramesImage, vlm_GroupsQAonlyFullImage, full_baseline2, vlm_IdentifyGroups_AllFramesImage_withbboxes, vlm_IdentifyGroups_AllFramesImage_idsonly
 
 CV2_COLORS = [ 
     (0, 0, 255),      # Red
@@ -44,16 +45,69 @@ CV2_COLORS = [
     (19, 69, 139),    # Dark Slate Blue
 ]
 
-def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path=''):
+def _frame_xyz_list(frame):
+    """Return the flat list of {'person_id','x','y',...} dicts for a frame, handling both the
+    plain list[dict] shape (p1/p2/.../p5) and the two-part [[bbox dicts],[xyz dicts]] shape
+    (p1_bbox/p1_visual/p1_visual_only, see get_frame_bboxes/get_allframes_bboxes)."""
+    if len(frame) == 2 and isinstance(frame[0], list) and isinstance(frame[1], list):
+        return frame[1]
+    return frame
+
+
+def get_movement_direction(input_text, target_frame, stationary_threshold=0.3):
+    """For each person in the target frame, find their earliest position among the frames
+    before it (not just frame 0 -- handles people who enter partway through the window) and
+    compute an 8-way directional label (or 'stationary' below stationary_threshold) for their
+    net displacement to the target frame. Labels are relative to the data's own x/y axes, not
+    true geographic compass directions."""
+    target_detections = _frame_xyz_list(input_text[target_frame - 1])
+    pre_target_frames = [_frame_xyz_list(f) for f in input_text[:target_frame - 1]]
+
+    earliest_position = {}
+    for frame in pre_target_frames:
+        for det in frame:
+            pid = det['person_id']
+            if pid not in earliest_position:
+                earliest_position[pid] = (det['x'], det['y'])
+
+    COMPASS = ['E', 'NE', 'N', 'NW', 'W', 'SW', 'S', 'SE']
+    directions = {}
+    for det in target_detections:
+        pid = det['person_id']
+        if pid not in earliest_position:
+            directions[pid] = 'stationary'
+            continue
+        x0, y0 = earliest_position[pid]
+        dx, dy = det['x'] - x0, det['y'] - y0
+        if (dx ** 2 + dy ** 2) ** 0.5 < stationary_threshold:
+            directions[pid] = 'stationary'
+        else:
+            angle = math.degrees(math.atan2(dy, dx)) % 360
+            directions[pid] = COMPASS[int((angle + 22.5) % 360 // 45)]
+    return directions
+
+
+def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path='', prompt_method='p1'):
     is_error = False
     try:
-        target_frame_data = [input_text[target_frame - 1]]
+        is_bbox_shape = prompt_method in ('p1_bbox', 'p1_visual', 'p1_visual_only')
+        raw_target = input_text[target_frame - 1]
+        target_bboxes, target_xyz = raw_target if is_bbox_shape else (None, raw_target)
+
+        movement = get_movement_direction(input_text, target_frame)
+        if prompt_method == 'p1_visual_only':
+            # No numeric channel for this method -- movement_direction is skipped, the image is
+            # the only signal (see the p1_visual_only decision this was built with).
+            enriched_xyz = target_xyz
+        else:
+            enriched_xyz = [
+                {**det, 'movement_direction': movement.get(det['person_id'], 'stationary')}
+                for det in target_xyz
+            ]
 
         if mode == 'llm' or mode =='vlm_text':
-            predictions = dspy_module(all_frames=target_frame_data, target_frame=target_frame)
+            predictions = dspy_module(all_frames=[enriched_xyz], target_frame=target_frame)
         if mode == 'vlm_image':
-            image = dspy.Image.from_file(frame_path)
-
             img_folder = frame_path[:-10]
             step = 3 if target_frame in (22, 42) else 1
             frame_indices = list(range(1, target_frame + 1, step))
@@ -61,7 +115,19 @@ def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path
                 frame_indices.append(target_frame)
             video = [dspy.Image.from_file(f'{img_folder}{str(i).zfill(5)}.jpeg') for i in frame_indices]
 
-            predictions = dspy_module(image=image, video=video, all_frames=target_frame_data, target_frame = target_frame)
+            if prompt_method == 'p1_bbox':
+                image = dspy.Image.from_file(frame_path)
+                predictions = dspy_module(image=image, video=video, boundingboxes=target_bboxes, detections=enriched_xyz, target_frame=target_frame)
+            elif prompt_method == 'p1_visual':
+                annotated_image = draw_bboxes_with_ids(frame_path, target_bboxes)
+                predictions = dspy_module(image=annotated_image, video=video, detections=enriched_xyz, target_frame=target_frame)
+            elif prompt_method == 'p1_visual_only':
+                annotated_image = draw_bboxes_with_ids(frame_path, target_bboxes)
+                person_ids = [d['person_id'] for d in target_bboxes]
+                predictions = dspy_module(image=annotated_image, video=video, person_ids=person_ids, target_frame=target_frame)
+            else:
+                image = dspy.Image.from_file(frame_path)
+                predictions = dspy_module(image=image, video=video, all_frames=[enriched_xyz], target_frame=target_frame)
 
         output = predictions.groups
     except Exception as e:
@@ -69,12 +135,12 @@ def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path
         is_error = True
     return output, is_error
 
-def full_inference_wrapper(lm, dspy_module, input_text, target_frame, mode='llm', frame_path= ''):
-    
-    if mode == 'llm' or mode == 'vlm_text': 
-        output, is_error = full_inference(dspy_module, input_text, target_frame, mode, '') 
-    elif mode == 'vlm_image': 
-        output, is_error = full_inference(dspy_module, input_text, target_frame, mode, frame_path)
+def full_inference_wrapper(lm, dspy_module, input_text, target_frame, mode='llm', frame_path='', prompt_method='p1'):
+
+    if mode == 'llm' or mode == 'vlm_text':
+        output, is_error = full_inference(dspy_module, input_text, target_frame, mode, '', prompt_method)
+    elif mode == 'vlm_image':
+        output, is_error = full_inference(dspy_module, input_text, target_frame, mode, frame_path, prompt_method)
 
     res = {}
     if not is_error:
@@ -231,6 +297,12 @@ def get_full_dspy_cot(mode, prompt_method):
             dspy_cot = full_baseline2()
         elif prompt_method == 'p1':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_AllFramesImage)
+        elif prompt_method == 'p1_bbox':
+            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_AllFramesImage_withbboxes)
+        elif prompt_method == 'p1_visual':
+            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_AllFramesImage)
+        elif prompt_method == 'p1_visual_only':
+            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_AllFramesImage_idsonly)
 
     return (dspy_cot, use_direction)
 
@@ -239,15 +311,20 @@ def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'
 
+    is_bbox_shape = prompt_method in ('p1_bbox', 'p1_visual', 'p1_visual_only')
+
     all_frames, bboxes = [], []
     for frame in data['frames']:
-        frame_input_data = []
+        frame_input_data = [[], []] if is_bbox_shape else []
         personid2bbox = {}
         for i,det in enumerate(frame['detections']):
 
             personid2bbox[det['track_id']] = det['bbox']
             if prompt_method == 'p5':
                 frame_input_data.append({'person_id': det['track_id'], 'x': (det['bbox'][0]+det['bbox'][2])//2, 'y': (det['bbox'][1]+det['bbox'][3])//2})
+            elif is_bbox_shape:
+                frame_input_data[1].append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4)})
+                frame_input_data[0].append({'person_id': det['track_id'], 't': round(det['bbox'][0],2), 'l': round(det['bbox'][1],2), 'b': round(det['bbox'][2],2), 'r': round(det['bbox'][3],2)})
             else:
                 if use_direction:
                     frame_input_data.append({'person_id': det['track_id'], 'x': round(det[depth_method][0],4), 'y': round(det[depth_method][1],4), 'z': round(det[depth_method][2],4), 'direction':det['direction']})
@@ -446,7 +523,7 @@ def parse_args_allframes():
         help="Comma-separated numbers or ranges, e.g. 1,2,5-7,10 or 0:51 or 0:51:15"
     )
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D', 'wilddet_3D'], default='naive_3D_60FOV')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4','p1_bbox','p1_visual','p1_visual_only'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)

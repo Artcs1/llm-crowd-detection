@@ -10,8 +10,9 @@ dataset=$1
 output_mode=$2
 frame_id=$3
 
-modes=("single" "full")
-prompt_methods=("p1" "baseline1" "baseline2")
+modes=("single")
+#"full")
+prompt_methods=("p1" "p1_bbox" "p1_visual" "p1_visual_only" "baseline1")
 depth_methods=("unidepth_3D" "detany_3D" "wilddet_3D")
 vlm_modes=("llm" "vlm_image")
 
