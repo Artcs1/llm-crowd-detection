@@ -9,13 +9,10 @@ class IdentifyGroups(dspy.Signature):
 
 class IdentifyGroups_AllFrames(dspy.Signature):
     """Given detections of people with their 3D positions in a single video frame, compute groups of people who are close together. Compute pairwise distances between people and choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if they are spatially close. Return only non-empty groups. Do not merge distant people into the same group. Do not hallucinate non-existent person_id."""
-    all_frames: list[list[dict]] = dspy.InputField(
-        desc="List containing a single list of people detections for the target frame. Each detection is a dict with keys: 'person_id', 'x', 'y', 'z', and 'movement_direction' (their net movement direction across the frames leading up to this one, or 'stationary')."
+    all_frames: list[dict] = dspy.InputField(
+        desc="List containing of the target frame. Each detection is a dict with keys: 'person_id', 'x', 'y', 'z', and 'movement_direction' (their net movement direction across the frames leading up to this one, or 'stationary')."
     )
-    target_frame: int = dspy.InputField(
-        desc="The 1-based index of the frame these detections belong to."
-    )
-    groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together in the target frame. All ids should appear at least once.")
+    groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together. All ids should appear at least once.")
 
 class vlm_GroupsQAonlyImage(dspy.Signature):
     """
@@ -180,11 +177,8 @@ class vlm_IdentifyGroups_AllFramesImage(dspy.Signature):
 
     image: dspy.Image = dspy.InputField(desc="Image with people to group")
     video: list[dspy.Image] = dspy.InputField(desc="Frames 1 through the target frame (subsampled for long sequences), giving temporal context")
-    all_frames: list[list[dict]] = dspy.InputField(
-        desc="List containing a single list of people detections for the target frame only. Each detection is a dict with keys: 'person_id', 'x', 'y', 'z', and 'movement_direction' (their net movement direction across the frames leading up to this one, or 'stationary')."
-    )
-    target_frame: int = dspy.InputField(
-        desc="The (1-based) index of the frame for which groups should be computed — matches the last frame of video and the frame shown in image."
+    all_frames: list[dict] = dspy.InputField(
+        desc="List containing of the target frame. Each detection is a dict with keys: 'person_id', 'x', 'y', 'z', and 'movement_direction' (their ne    t movement direction across the frames leading up to this one, or 'stationary')."
     )
     groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together in the target frame, inferred using spatial context from the target frame and temporal context from the video. All ids should appear at least once.")
 
@@ -202,22 +196,20 @@ class vlm_IdentifyGroups_AllFramesImage_withbboxes(dspy.Signature):
     image: dspy.Image = dspy.InputField(desc="Image with people to group")
     video: list[dspy.Image] = dspy.InputField(desc="Frames 1 through the target frame (subsampled for long sequences), giving temporal context")
     boundingboxes: list[dict] = dspy.InputField(desc="List of people in the target frame, where each dictionary has keys in the standard top-left bottom-right notation [t, l, b, r]")
-    detections: list[dict] = dspy.InputField(desc="List of people in the target frame, where each dictionary has keys: 'person_id', 'x', 'y', 'z', and 'movement_direction' (their net movement direction across the frames leading up to this one, or 'stationary')")
-    target_frame: int = dspy.InputField(desc="The (1-based) index of the frame for which groups should be computed — matches the last frame of video and the frame shown in image.")
+    all_frames: list[dict] = dspy.InputField(desc="List of people in the target frame, where each dictionary has keys: 'person_id', 'x', 'y', 'z', and 'movement_direction' (their net movement direction across the frames leading up to this one, or 'stationary')")
     groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together in the target frame, inferred using spatial context from the target frame and temporal context from the video. All ids should appear at least once.")
 
 
 class vlm_IdentifyGroups_AllFramesImage_idsonly(dspy.Signature):
     """Given an image with people in the target frame annotated by bounding boxes and id labels,
     a video of the frames leading up to it, and the list of person_ids to group, compute groups
-    of people who are close together in the target frame. Use only the visual positions of the
+    of people who are close together in the target frame (image input). Use only the visual positions of the
     labeled boxes and the video for temporal context to judge proximity — no numeric coordinates
     are provided. Return only non-empty groups. Do not merge distant people into the same group."""
 
     image: dspy.Image = dspy.InputField(desc="Image with people in the target frame, bounding boxes and id labels drawn on each person")
     video: list[dspy.Image] = dspy.InputField(desc="Frames 1 through the target frame (subsampled for long sequences), giving temporal context")
     person_ids: list[int] = dspy.InputField(desc="List of person_ids visible in the target frame, to be grouped by their visual positions")
-    target_frame: int = dspy.InputField(desc="The (1-based) index of the frame for which groups should be computed — matches the last frame of video and the frame shown in image.")
     groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together in the target frame, inferred using visual context from the image and temporal context from the video. All ids should appear at least once.")
 
 
@@ -258,6 +250,5 @@ class RecognizeGroupHugging(dspy.Signature):
     image: dspy.Image = dspy.InputField(desc="Image with people")
     bbox: list[int] = dspy.InputField(desc="Bounding box around a group of people, in top-left and bottom-right notation: [x1, y1, x2, y2]")
     output: bool = dspy.OutputField(desc="True or False, answer if they are hugging or holding each other.")
-
 
 

@@ -28,7 +28,7 @@ fi
 
 #modes=("vlm_image")
 types=("single")
-depth_methods=("detany_3D" "unidepth_3D" "wilddet_3D")
+depth_methods=("wilddet_3D")
 
 for type in "${types[@]}"; do
   for mode in "${modes[@]}"; do

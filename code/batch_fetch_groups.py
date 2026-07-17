@@ -21,13 +21,13 @@ def main():
 
     for current_file in tqdm(collected_files):
         try:
-        #    #print(current_file)
+            #print(current_file)
         #if True:
             with open(current_file, 'r') as f:
                 data = json.load(f)
         
             lm = dspy.LM('openai/'+args.model, api_key=args.api_key, api_base=args.api_base, temperature=args.temperature, max_tokens=args.max_tokens)
-            dspy.configure(lm=lm, adapter = dspy.JSONAdapter())
+            dspy.configure(lm=lm)
             
             if args.setting == 'single':
                 dspy_cot, use_direction = get_dspy_cot(args.mode, args.prompt_method)
@@ -46,9 +46,9 @@ def main():
                     output = inference_wrapper(lm, dspy_cot, frame_input_data, args.mode, image_path=frame_path, prompt=args.prompt_method)
             elif args.setting == 'full':
                 if args.mode == 'llm' or args.mode == 'vlm_text':
-                    output = full_inference_wrapper(lm, dspy_cot, all_frames, args.frame_id, args.mode)
+                    output = full_inference_wrapper(lm, dspy_cot, all_frames, args.frame_id, args.mode, prompt_method=args.prompt_method)
                 elif args.mode == 'vlm_image':
-                    output = full_inference_wrapper(lm, dspy_cot, all_frames, args.frame_id, args.mode, frame_path)
+                    output = full_inference_wrapper(lm, dspy_cot, all_frames, args.frame_id, args.mode, frame_path, prompt_method=args.prompt_method)
         
             if output['error'] is not None:
                 print(f"Error during inference: {output['error']}")
@@ -66,9 +66,9 @@ def main():
                 res_path = '../results/predictions/'+ args.frame_path.split('/')[-2] + '/results_full'
                 save_full_frame(output, bboxes, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method, args.frame_id)
         
-
         except Exception as e:
             print(f'Fail in: {current_file}, seting: {args.setting},  mode: {args.mode}, model: {args.model}, prompt: {args.prompt_method}')
     
 if __name__ == "__main__":
     main()
+

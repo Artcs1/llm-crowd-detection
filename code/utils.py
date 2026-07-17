@@ -106,28 +106,34 @@ def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path
             ]
 
         if mode == 'llm' or mode =='vlm_text':
-            predictions = dspy_module(all_frames=[enriched_xyz], target_frame=target_frame)
+            predictions = dspy_module(all_frames=enriched_xyz)
         if mode == 'vlm_image':
             img_folder = frame_path[:-10]
             step = 3 if target_frame in (22, 42) else 1
             frame_indices = list(range(1, target_frame + 1, step))
             if frame_indices[-1] != target_frame:
                 frame_indices.append(target_frame)
-            video = [dspy.Image.from_file(f'{img_folder}{str(i).zfill(5)}.jpeg') for i in frame_indices]
+            if prompt_method == 'p1_bbox' or prompt_method == 'p1':
+                video = [dspy.Image.from_file(f'{img_folder}{str(i).zfill(5)}.jpeg') for i in frame_indices]
+            else:
+                video = [
+                    draw_bboxes_with_ids(f'{img_folder}{str(i).zfill(5)}.jpeg', input_text[i - 1][0])
+                    for i in frame_indices
+                ]
 
             if prompt_method == 'p1_bbox':
                 image = dspy.Image.from_file(frame_path)
-                predictions = dspy_module(image=image, video=video, boundingboxes=target_bboxes, detections=enriched_xyz, target_frame=target_frame)
+                predictions = dspy_module(image=image, video=video, boundingboxes=target_bboxes, all_frames=enriched_xyz)
             elif prompt_method == 'p1_visual':
                 annotated_image = draw_bboxes_with_ids(frame_path, target_bboxes)
-                predictions = dspy_module(image=annotated_image, video=video, detections=enriched_xyz, target_frame=target_frame)
+                predictions = dspy_module(image=annotated_image, video=video, all_frames=enriched_xyz)
             elif prompt_method == 'p1_visual_only':
                 annotated_image = draw_bboxes_with_ids(frame_path, target_bboxes)
                 person_ids = [d['person_id'] for d in target_bboxes]
-                predictions = dspy_module(image=annotated_image, video=video, person_ids=person_ids, target_frame=target_frame)
+                predictions = dspy_module(image=annotated_image, video=video, person_ids=person_ids)
             else:
                 image = dspy.Image.from_file(frame_path)
-                predictions = dspy_module(image=image, video=video, all_frames=[enriched_xyz], target_frame=target_frame)
+                predictions = dspy_module(image=image, video=video, all_frames=enriched_xyz)
 
         output = predictions.groups
     except Exception as e:
@@ -575,4 +581,6 @@ def compute_group_bbox(groups, id_to_bbox, return_counts=False):
         return gboxes, counts
     else:
         return gboxes
+
+
 
