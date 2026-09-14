@@ -8,10 +8,10 @@ from tqdm import tqdm
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select mode, prompt method, model, and VLM mode")
-    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","BLENDER","SEKAI_OURS","SEKAI_OURS_200","SEKAI_540_3","gold_SEKAI_900_3"], required=True, help="Dataset options")
+    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","EgoGroups_test","gold_SEKAI_900_3"], required=True, help="Dataset options")
     parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
     parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D","wilddet_3D"], default="naive_3D_60FOV", help="Depth method")
-    parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p1_bbox","p2","p3","p4","p5"], required=True, help="Prompt method")
+    parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p1_bbox","p2","p3","p4","p5","naive_cluster"], required=True, help="Prompt method")
     parser.add_argument("--model", type=str, required=True, help="Specify the model name or path")
     parser.add_argument("--vlm_mode", type=str, choices=["llm","vlm_image","vlm_text"], required=True, help="VLM mode: image or text")
     parser.add_argument('--frame_id', type=int)
@@ -21,18 +21,14 @@ if __name__ == '__main__':
     base_dir = os.getcwd()
     #print(base_dir)
     #base_dir = "/home/artcs1/Desktop/llm-crowd-detection/code"
+
+    #print(args.dataset)
     
     if args.dataset == 'JRDB_fixed':
         H, W = 480, 3760
     elif args.dataset == 'JRDB_fixed_gold':
         H, W = 480, 3760
-    elif args.dataset == 'BLENDER':
-        H, W = 3240, 3240
-    elif args.dataset == 'SEKAI_OURS':
-        H, W = 1080, 1920
-    elif args.dataset == 'SEKAI_OURS_200':
-        H, W = 1080, 1920
-    elif args.dataset == 'SEKAI_540_3':
+    elif args.dataset == 'EgoGroups_test':
         H, W = 1080, 1920
     elif args.dataset == 'gold_SEKAI_900_3':
         H, W = 1080, 1920
@@ -50,13 +46,13 @@ if __name__ == '__main__':
         "*"                        # wildcard for files
     )
 
-    print(path)
+    #print(path)
 
     files = glob.glob(path)
     files.sort()
     
-    print(path)
-    print(args.model)
+    #print(path)
+    #print(args.model)
     scenarios = set()
 
     det_file = f"../results/grouping_files/{args.dataset}_{args.frame_id}/{results_folder.split('/')[-1]}_{args.model}_{args.vlm_mode}_{args.depth_method}_{args.prompt_method}.pkl"
@@ -74,18 +70,31 @@ if __name__ == '__main__':
     for ind, file in enumerate(tqdm(files)):
         last = file.split('/')
         json_file = f'{file}/{last[-1]}.json'
+        #print(json_file)
     
         with open(json_file, 'r') as f:
             data = json.load(f)
-    
+
         scenario       = last[-1]
 
-        if args.dataset == 'SEKAI_540_3' or 'gold_SEKAI_900_3':
+        #print(args.dataset)
+        if args.dataset == 'SEKAI_540_3' or args.dataset == 'gold_SEKAI_900_3':
+            #print('sekai')
             scenarios.add(scenario)
             idx   = int(int(scenario.split('_')[-1])) - 1
             number   = 0
             dc, int_img, lvl, group_id = 1, (number+1)*1, 1, 1
+        elif args.dataset == 'EgoGroups_test':
+            #print('ego')
+            split_scenario = scenario.split('_')
+            orig_scenario  = "".join(split_scenario[:-1]) 
+            #print(orig_scenario)
+            number   = int(split_scenario[-1])
+            scenarios.add(orig_scenario)
+            #print(scenarios)
+            dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*10, 1, 1
         else:
+            #print('jrdb')
             split_scenario = scenario.split('_')
             orig_scenario  = "".join(split_scenario[:-1]) 
             number   = int(split_scenario[-1])
@@ -114,6 +123,9 @@ if __name__ == '__main__':
                 groups.append([int(key)])                
 
         results[idx][str(number)] = groups
+
+        #print(results)
+        #input()
 
  
     #print(results)

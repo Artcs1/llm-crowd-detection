@@ -20,6 +20,7 @@ def main():
     #collected_files = collected_files[::-1]
 
     for current_file in tqdm(collected_files):
+
         try:
             #print(current_file)
         #if True:

@@ -66,7 +66,9 @@ def main():
 
     for i, annotation in enumerate(tqdm(res_json['annotations'][start_idx:end_idx])):
         videoInfo = annotation['videoInfo']
-        frame_path = os.path.join(args.dir, annotation['videoFolder'], str(videoInfo['annotationFrame']+1).zfill(5) + '.jpeg')
+        #frame_path = os.path.join(args.dir, annotation['videoFolder'], str(videoInfo['annotationFrame']+1).zfill(5) + '.jpeg')
+        #print(annotation['videoFolder'])
+        frame_path = os.path.join(args.frame_path, annotation['videoFolder'].split('/')[-2], str(videoInfo['annotationFrame']+1).zfill(5) + '.jpeg')
 
         for gbox in annotation['groups']:
             res = {}

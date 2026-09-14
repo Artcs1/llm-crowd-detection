@@ -26,17 +26,53 @@ def extract_model_info(name):
     else:
         modality = 'LLM'
 
-    # Detect SFT / RL training-stage suffixes (e.g. "Qwen2.5-7B-Instruct-RL")
-    # so that these variants show up as their own method row under the same
-    # base model family, instead of being tagged as "+ metadata".
-    stage_match = re.search(r'-(SFT|RL)(?:_|$)', name, re.IGNORECASE)
+    # Detect the "EgoGroups" training-data variant (e.g.
+    # "Qwen2.5-7B-Instruct-egogroups-RL2F..."). These runs use a different
+    # training set from their non-EgoGroups counterparts, so they need to be
+    # tagged and kept as their own row rather than colliding with (and
+    # silently overwriting/being overwritten by) the plain-SFT/RL row that
+    # would otherwise parse to the exact same (model, params, modality,
+    # method) key.
+    is_ego = bool(re.search(r'egogroups', name, re.IGNORECASE))
+
+    # Detect SFT / RL training-stage suffixes (e.g. "Qwen2.5-7B-Instruct-RL",
+    # "-RL4", "-RLS4", "-RL2F", "-RL4F", "-RLS4F") so that these variants show
+    # up as their own method row under the same base model family, instead of
+    # being tagged as "+DATA". RLS?\d*F? covers plain "RL", numbered "RL4",
+    # "RLS4" style suffixes, and their "F"-suffixed counterparts.
+    stage_match = re.search(r'-(SFT|RLS?\d*F?)(?:_|$)', name, re.IGNORECASE)
     stage = stage_match.group(1).upper() if stage_match else None
+
+    # Detect the visual / visual-only / metadata-bbox variant tag. Normally
+    # this alone decides the method (see the elif chain below), but a row
+    # can carry BOTH a training-stage suffix and one of these tags at once
+    # (e.g. the EgoGroups RL runs each come in a "_visual" and a
+    # "_visual_only" flavor). In that case the stage takes priority for the
+    # base method name, so the variant tag must be folded in separately
+    # below - otherwise the "_visual" and "_visual_only" rows would collide
+    # under the same "+RL2F" method.
+    if '_p1_bbox' in name:
+        variant_tag = 'metadata-bbox'
+    elif '_p1_visual_only' in name:
+        # Must be checked before '_p1_visual' since "visual_only" also
+        # contains "visual" as a substring.
+        variant_tag = 'visual-only'
+    elif '_p1_visual' in name:
+        variant_tag = 'visual'
+    else:
+        variant_tag = None
 
     # Determine method
     if stage:
         method = f'+{stage}'
-    elif '_p1_bbox' in name:
+        if variant_tag:
+            method += f' ({variant_tag})'
+    elif variant_tag == 'metadata-bbox':
         method = '+ metadata-bbox'
+    elif variant_tag == 'visual-only':
+        method = '+ visual-only'
+    elif variant_tag == 'visual':
+        method = '+ visual'
     elif '_p1' in name:
         method = '+DATA'
     elif 'baseline2' in name:
@@ -46,18 +82,20 @@ def extract_model_info(name):
     else:
         method = 'Other'
 
+    if is_ego:
+        method += ' (EgoGroups)'
+
     # Extract model family and parameters (case-insensitive so lowercase
     # filenames like "qwen2.5-7b-groups-grpo" are still captured)
     model_match = re.search(r'(Qwen[\d.]+|Cosmos-Reason\d+|gemini-\d)', name, re.IGNORECASE)
     model_family = model_match.group(1) if model_match else None
 
-    # Extract parameter size (e.g., 3B, 7B, 32B, 72B, 30B-A3B, 4B)
-    param_match = re.search(r'(\d+B-A\d+B)', name, re.IGNORECASE)
-    if param_match:
-        params = param_match.group(1)
-    else:
-        param_match = re.search(r'(\d+B)', name, re.IGNORECASE)
-        params = param_match.group(1) if param_match else None
+    # Extract parameter size (e.g., 3B, 7B, 32B, 72B, 30B-A3B, 4B).
+    # The two alternatives are combined into a single search, with the more
+    # specific "A-variant" pattern listed first so it's preferred whenever
+    # both would match at the same position (e.g. "30B-A3B").
+    param_match = re.search(r'(\d+B-A\d+B|\d+B)', name, re.IGNORECASE)
+    params = param_match.group(1) if param_match else None
 
     # If either family or params couldn't be parsed, fall back to using the
     # full (cleaned) filename as the "family" so unrelated/unparseable
@@ -162,15 +200,51 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
         '2B': 1, '3B': 2, '4B': 3, '7B': 4, '8B': 5, '30B-A3B': 6, '32B': 7, '72B': 8, '235B-A22B': 9
     }
 
-    method_order = {
+    # Base rank for each method "stage". Kept as its own dict (rather than
+    # inlined) so method_sort_key() below can look up the stage after
+    # stripping off any "(visual)" / "(visual-only)" / "(metadata-bbox)" and
+    # "(EgoGroups)" qualifiers.
+    stage_order = {
         'Sequentially': 1,
         'Atomic': 2,
         '+DATA': 3,
         '+SFT': 4,
         '+RL': 5,
-        '+ metadata-bbox': 6,
-        'Other': 7
+        '+RL4': 6,
+        '+RLS4': 7,
+        '+RL2F': 8,
+        '+RL4F': 9,
+        '+RLS4F': 10,
+        '+ metadata-bbox': 11,
+        '+ visual': 12,
+        '+ visual-only': 13,
+        'Other': 14
     }
+
+    variant_order = {None: 0, 'visual': 1, 'visual-only': 2, 'metadata-bbox': 3}
+
+    def method_sort_key(method):
+        """
+        Sort key for a method label. A label is built as:
+            '+<STAGE>[ (<variant>)][ (EgoGroups)]'
+        e.g. '+RL2F (visual-only) (EgoGroups)'. This peels off the optional
+        '(EgoGroups)' and '(<variant>)' suffixes so rows sort next to their
+        base-method sibling (same stage), with EgoGroups/variant flavors of
+        the same stage sorted immediately after the plain version, instead
+        of all falling back to the same default rank.
+        """
+        is_ego = method.endswith(' (EgoGroups)')
+        base = method[: -len(' (EgoGroups)')] if is_ego else method
+
+        variant = None
+        for tag in ('visual-only', 'visual', 'metadata-bbox'):
+            suffix = f' ({tag})'
+            if base.endswith(suffix):
+                variant = tag
+                base = base[: -len(suffix)]
+                break
+
+        return (stage_order.get(base, 999), variant_order.get(variant, 0), int(is_ego))
 
     all_sf_values = [single_frame_org[k] for k in all_keys if k in single_frame_org]
     all_video_values = [video_org[k] for k in all_keys if k in video_org]
@@ -225,7 +299,7 @@ def create_merged_latex_table(single_frame_data, video_data, detector_key):
                     continue
 
                 sorted_entries = sorted(param_data[modality],
-                                         key=lambda x: method_order.get(x['method'], 999))
+                                         key=lambda x: method_sort_key(x['method']))
                 modality_rows = len(sorted_entries)
                 first_modality_row = True
 

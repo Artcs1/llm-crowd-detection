@@ -529,9 +529,9 @@ class Evaluation:
         num_GROUP = 0
         #print("Evaluating Grouping Performance...")
         if self.whole == False:
-            print(GT)
+            #print(GT)
             for frame in GT:
-                print(frame)
+                #print(frame)
                 GT_frame = GT[frame]
                 if frame not in pre:
                     GROUP_frame = []

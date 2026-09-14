@@ -29,9 +29,9 @@ MODES=(
 
 MODES=(
     all
-    crowded
-    moderate
-    scattered    
+#    crowded
+#    moderate
+#    scattered    
 )
 
 for MODE in "${MODES[@]}"; do

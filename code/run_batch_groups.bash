@@ -16,7 +16,9 @@ PROMPT_METHOD=$4
 BASE_URL="http://localhost:${PORT}/v1"
 
 # List of group IDs to run
-IDS=(42 22 2)
+# IDS=(42 22 2)
+
+IDS=(15)
 # 10 20 30 40 50)
 
 for ID in "${IDS[@]}"; do

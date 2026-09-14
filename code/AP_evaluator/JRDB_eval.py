@@ -370,7 +370,9 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
   # logging.info("CATEGORIES (%d):\n%s", len(categories), pprint.pformat(categories, indent=2))
 
   import json
-  
+  import os
+  import glob
+
   country_mapping = {
     "USA": "United States",
     "UAE": "United Arab Emirates",
@@ -392,11 +394,31 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
     "O": "Other",
   }
   
-  source_dataset = "/lp-dev/jmurrugarral/gold_SEKAI_900_3/"
-  
+  # Dataset-aware: EgoGroups_test's clip files are named clip_<base>_<sub>.json (5 sub-clips per
+  # base clip, density identical across all 5 -- verified directly), unlike gold_SEKAI_900_3's
+  # single-number clip_<n>.json. `detections` is a path built by compute_detections.py as
+  # ../results/detection_files/{dataset}_{frame_id}/..., so the dataset name is already a
+  # substring of it at runtime -- no signature/call-site changes needed to detect which dataset
+  # this run is for.
+  if "EgoGroups_test" in detections:
+    source_dataset = "/lp-dev/jmurrugarral/EgoGroups_test/"
+    clip_glob_pattern = "clip_{:04d}_*.json"  # any sub-clip -- density is identical across all 5
+  else:
+    source_dataset = "/lp-dev/jmurrugarral/gold_SEKAI_900_3/"
+    clip_glob_pattern = "clip_{:04d}.json"
+
+  def _load_clip_json(i):
+    json_file = glob.glob(os.path.join(source_dataset, 'jsons_step1', clip_glob_pattern.format(i + 1)))[0]
+    with open(json_file, "r") as f:
+      return json.load(f)
+
   seq_len += 1
 
-  density_offsets = {"scattered": 0, "moderate": 1, "crowded": 2}
+  # Real per-clip density (each clip JSON's own 'density' field, verified present and reliable --
+  # see plan/investigation notes) -- NOT the old scene_index % 3 heuristic, which only ever
+  # happened to work for gold_SEKAI_900_3 because every one of its 900 clips is always present and
+  # processed in order.
+  DENSITY_MODES = {"scattered", "moderate", "crowded"}
 
   # True for modes that only ever want the pooled aggregate result (never per-scene entries) --
   # needed so the aggregate-tagging logic below doesn't mistake a thin (possibly single-scene)
@@ -407,17 +429,9 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
     seqs = [[i] for i in range(seq_len)]
     seqs.append(list(range(seq_len)))
 
-  elif mode == "scattered":
+  elif mode in DENSITY_MODES:
     seqs = [[i] for i in range(seq_len)]
-    seqs.append(list(range(0, seq_len, 3)))
-
-  elif mode == "moderate":
-    seqs = [[i] for i in range(seq_len)]
-    seqs.append(list(range(1, seq_len, 3)))
-
-  elif mode == "crowded":
-    seqs = [[i] for i in range(seq_len)]
-    seqs.append(list(range(2, seq_len, 3)))
+    seqs.append([i for i in range(seq_len) if _load_clip_json(i)['density'] == mode])
 
   elif mode in region_modes:
 
@@ -429,49 +443,42 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
 
     for i in range(seq_len):
 
-      json_file = (
-        f"{source_dataset}/jsons_step1/clip_{i+1:04d}.json"
-      )
+      data = _load_clip_json(i)
 
-      with open(json_file, "r") as f:
-        data = json.load(f)
-
-      country = data['country']
-      if country in country_mapping.keys():
-        country = country_mapping[country]
-
-      globe = country_to_region_globe[country]
+      if 'globe_region' in data:
+        globe = data['globe_region']
+      else:
+        country = data['country']
+        if country in country_mapping.keys():
+          country = country_mapping[country]
+        globe = country_to_region_globe[country]
 
       if globe == target_region:
         seqs[0].append(i)
 
-  elif "_" in mode and mode.split("_", 1)[0] in region_modes and mode.split("_", 1)[1] in density_offsets:
+  elif "_" in mode and mode.split("_", 1)[0] in region_modes and mode.split("_", 1)[1] in DENSITY_MODES:
 
     aggregate_only = True
 
     region_part, density_part = mode.split("_", 1)
     target_region = region_modes[region_part]
-    target_offset = density_offsets[density_part]
 
     seqs = [[]]
 
     for i in range(seq_len):
 
-      if i % 3 != target_offset:
-        continue  # cheap filter first -- skips the JSON open for 2/3 of scenes
+      data = _load_clip_json(i)
 
-      json_file = (
-        f"{source_dataset}/jsons_step1/clip_{i+1:04d}.json"
-      )
+      if data['density'] != density_part:
+        continue
 
-      with open(json_file, "r") as f:
-        data = json.load(f)
-
-      country = data['country']
-      if country in country_mapping.keys():
-        country = country_mapping[country]
-
-      globe = country_to_region_globe[country]
+      if 'globe_region' in data:
+        globe = data['globe_region']
+      else:
+        country = data['country']
+        if country in country_mapping.keys():
+          country = country_mapping[country]
+        globe = country_to_region_globe[country]
 
       if globe == target_region:
         seqs[0].append(i)
@@ -581,6 +588,19 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
                 for idx in range(len(gt_refine)):
                     gt_g_id.append(gt_g_labels[image_key][gt_refine[idx]])
                     det_g_id.append(pred_g_labels[image_key][det_refine[idx]])
+
+                # No detected box hit IoU>=0.5 against any GT box for this scene (gt_g_id/det_g_id
+                # both empty, and det_refine/FPs partition into det_refine=[] and FPs=every index)
+                # -- match_assignments()/refine_y_pred() call .max() on an empty array and crash in
+                # that case. Not reachable by every predictor (LLM/VLM runs apparently always had
+                # >=1 decent match per scene), but a naive clustering baseline can legitimately whiff
+                # entirely on a scene. Since det_refine is empty, the loop below would take the
+                # `elif d in FPs` branch (label=1) for every index anyway -- replicate that directly
+                # instead of calling refine_y_pred on empty arrays.
+                if len(gt_g_id) == 0:
+                    for idx, d in enumerate(range(len(pred_g_labels[image_key]))):
+                        pred_g_labels[image_key][idx] = 1
+                    continue
 
                 refined_det_g_id = refine_y_pred(np.array(gt_g_id), np.array(det_g_id))
 

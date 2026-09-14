@@ -113,7 +113,7 @@ def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path
             frame_indices = list(range(1, target_frame + 1, step))
             if frame_indices[-1] != target_frame:
                 frame_indices.append(target_frame)
-            if prompt_method == 'p1_bbox' or prompt_method == 'p1':
+            if prompt_method == 'p1_bbox' or prompt_method == 'p1' or prompt_method == 'baseline1':
                 video = [dspy.Image.from_file(f'{img_folder}{str(i).zfill(5)}.jpeg') for i in frame_indices]
             else:
                 video = [
@@ -121,7 +121,10 @@ def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path
                     for i in frame_indices
                 ]
 
-            if prompt_method == 'p1_bbox':
+            if prompt_method == 'baseline1':
+                image = dspy.Image.from_file(frame_path)
+                predictions = dspy_module(image=image, video=video)
+            elif prompt_method == 'p1_bbox':
                 image = dspy.Image.from_file(frame_path)
                 predictions = dspy_module(image=image, video=video, boundingboxes=target_bboxes, all_frames=enriched_xyz)
             elif prompt_method == 'p1_visual':
@@ -581,6 +584,5 @@ def compute_group_bbox(groups, id_to_bbox, return_counts=False):
         return gboxes, counts
     else:
         return gboxes
-
 
 

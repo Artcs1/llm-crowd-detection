@@ -27,13 +27,15 @@ for groundtruth, dataset_path in zip(args.groundtruth, args.dataset_path):
 
     for det in detection_files:
         print(f"Evaluating: {det}  [gt: {groundtruth}]")
+        cmd = [
+            "python3", "ours_jrdb_evaluation.py",
+            "--det", det,
+            "--gt", groundtruth,
+            "--o", args.output
+        ]
+        print(f"Command: {' '.join(cmd)}")
         result = subprocess.run(
-            [
-                "python3", "ours_jrdb_evaluation.py",
-                "--det", det,
-                "--gt", groundtruth,
-                "--o", args.output 
-            ],
+            cmd,
             capture_output=True,
             text=True
         )

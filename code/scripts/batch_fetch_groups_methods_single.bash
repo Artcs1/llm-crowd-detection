@@ -12,14 +12,14 @@ api_key=$3
 frame_id=$4
 prompt_method=$5
 
-#json_path="../../JRDB_fixed_gold/jsons_gold"
-#frame_path="../../JRDB_fixed_gold/videos_frames"
+json_path="../../JRDB_fixed_gold/jsons_gold"
+frame_path="../../JRDB_fixed_gold/videos_frames"
 
-json_path="../../gold_SEKAI_900_3/jsons_step5"
-frame_path="../../gold_SEKAI_900_3/videos_frames"
+#json_path="../../gold_SEKAI_900_3/jsons_step5"
+#frame_path="../../gold_SEKAI_900_3/videos_frames"
 
 if [[ "$model_name" == *"Cosmos"* ]]; then
-  modes=("llm" "vlm_image")
+  modes=("vlm_image")
 elif [[ "$model_name" == *"VL"* ]]; then
   modes=("vlm_image")
 else
@@ -27,8 +27,10 @@ else
 fi
 
 #modes=("vlm_image")
-types=("single")
+types=("full")
+#("single")
 depth_methods=("wilddet_3D")
+#depth_methods=("3D")
 
 for type in "${types[@]}"; do
   for mode in "${modes[@]}"; do
