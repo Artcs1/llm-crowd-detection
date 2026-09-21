@@ -21,9 +21,9 @@ def main():
 
     for current_file in tqdm(collected_files):
 
-        try:
+        #try:
             #print(current_file)
-        #if True:
+        if True:
             with open(current_file, 'r') as f:
                 data = json.load(f)
         
@@ -67,8 +67,8 @@ def main():
                 res_path = '../results/predictions/'+ args.frame_path.split('/')[-2] + '/results_full'
                 save_full_frame(output, bboxes, res_path, save_filename, frame_path, args.save_image, args.model, args.mode, args.depth_method, args.prompt_method, args.frame_id)
         
-        except Exception as e:
-            print(f'Fail in: {current_file}, seting: {args.setting},  mode: {args.mode}, model: {args.model}, prompt: {args.prompt_method}')
+        #except Exception as e:
+        #    print(f'Fail in: {current_file}, seting: {args.setting},  mode: {args.mode}, model: {args.model}, prompt: {args.prompt_method}')
     
 if __name__ == "__main__":
     main()

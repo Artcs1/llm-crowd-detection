@@ -22,16 +22,16 @@ PROMPT_METHOD=$4
 TYPE=$5
 API_BASE="http://localhost:${PORT}/v1"
 
-#json_path="../../JRDB_fixed_gold/jsons_gold"
-#frame_path="../../JRDB_fixed_gold/videos_frames"
+json_path="../../JRDB_fixed_gold/jsons_gold"
+frame_path="../../JRDB_fixed_gold/videos_frames"
 #json_path="../../gold_SEKAI_900_3/jsons_step5"
 #frame_path="../../gold_SEKAI_900_3/videos_frames"
-json_path="../../EgoGroups_test/jsons_step6"
-frame_path="../../EgoGroups_test/videos_frames"
+#json_path="../../EgoGroups_test/jsons_step6"
+#frame_path="../../EgoGroups_test/videos_frames"
 
 # List of group IDs to run
 # IDS=(42 22 2)
-IDS=(10)
+IDS=(15)
 # 10 20 30 40 50)
 
 if [[ "$MODEL_NAME" == *"Cosmos"* ]]; then
