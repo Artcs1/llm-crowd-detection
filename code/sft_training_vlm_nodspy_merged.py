@@ -19,7 +19,8 @@ def parse_args():
     )
     parser.add_argument(
         '--dataset', type=str,
-        choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset'],
+        choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
+                 'egogroups-synth-train', 'egogroups-synth-train-subset'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py (JRDB_train_fixed_gold, F1_evaluator/out/gt.pkl); "
              "'egogroups' uses egogroups_data_utils.py (gold_SEKAI_900_3, "
@@ -66,6 +67,7 @@ from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 from trl import SFTConfig, SFTTrainer
 
 import egogroups_data_utils
+import egogroups_synth_train_data_utils
 import egogroups_train_data_utils
 import sft_data_utils
 
@@ -88,9 +90,13 @@ elif args.dataset in ('egogroups', 'egogroups-subset'):
     examples = egogroups_data_utils.build_sft_examples(
         require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-subset'),
     )
-else:
+elif args.dataset in ('egogroups-train', 'egogroups-train-subset'):
     examples = egogroups_train_data_utils.build_sft_examples(
         require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-train-subset'),
+    )
+else:
+    examples = egogroups_synth_train_data_utils.build_sft_examples(
+        require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-synth-train-subset'),
     )
 print(f'{len(examples)} image-grounded ground-truth examples across {len({e["scenario_idx"] for e in examples})} scenarios')
 
