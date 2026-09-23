@@ -22,8 +22,7 @@ def parse_args():
     )
     parser.add_argument(
         '--dataset', type=str,
-        choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
-                 'egogroups-synth-train', 'egogroups-synth-train-subset'],
+        choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py + the jrdb-trained SFT checkpoint; 'egogroups' uses "
              "egogroups_data_utils.py + the egogroups-trained SFT checkpoint; 'egogroups-train' "
@@ -37,7 +36,19 @@ def parse_args():
         help="'p1_visual' sends the bbox/id-annotated image plus numeric x,y,z coordinates "
              "(matching rl_training_vlm_nodspy.py); 'idsonly' sends only the annotated image plus "
              "a bare person_ids list, no coordinates at all (matching "
-             "rl_training_vlm_nodspy_visualonly.py / prompt_method='p1_visual_only')."
+             "rl_training_vlm_nodspy_visualonly.py / prompt_method='p1_visual_only'). Only "
+             "'p1_visual' is supported when --mode full (see --mode)."
+    )
+    parser.add_argument(
+        '--mode', type=str, choices=['single', 'full'], default='single',
+        help="'single' trains on a bare single-frame input (build_sft_examples, matching this "
+             "script's default); 'full' trains on the target frame's detections enriched with a "
+             "per-person 'movement_direction' label computed from every earlier frame in the "
+             "scenario (build_sft_examples_full, matching sft_training_vlm_nodspy_full.py's data "
+             "source -- single annotated image + movement_direction as text, not a multi-image "
+             "video). Only --variant p1_visual is supported in full mode -- no idsonly+full "
+             "prompt exists in this codebase. Requires the matching full-mode SFT checkpoint "
+             "(see sft_training_vlm_nodspy_merged.py --mode full) to already exist."
     )
     parser.add_argument(
         '--gpu', type=str, default=None,
@@ -68,7 +79,10 @@ def parse_args():
 
 
 args = parse_args()
-print(f'dataset: {args.dataset}  variant: {args.variant}  gpu: {args.gpu or "(default)"}')
+print(f'dataset: {args.dataset}  variant: {args.variant}  mode: {args.mode}  gpu: {args.gpu or "(default)"}')
+
+if args.mode == 'full' and args.variant == 'idsonly':
+    raise ValueError("--mode full only supports --variant p1_visual (no idsonly+full prompt exists)")
 
 # Must happen before torch is imported (see below). --gpu overrides the hardcoded default; if
 # omitted, an already-exported CUDA_VISIBLE_DEVICES env var wins, else fall back to '4'.
@@ -107,7 +121,6 @@ from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration, Trai
 from trl import GRPOConfig, GRPOTrainer
 
 import egogroups_data_utils
-import egogroups_synth_train_data_utils
 import egogroups_train_data_utils
 import sft_data_utils
 
@@ -120,11 +133,14 @@ import sft_data_utils
 # Suffix applied to the starting SFT checkpoint. Folds in a variant_infix the same way
 # sft_training_vlm_nodspy_merged.py's DATASET_SUFFIX already does, so MODEL_NAME below is just
 # f'...{DATASET_SUFFIX}' -- this produces identical strings to the two source scripts' separate
-# hardcoded '-idsonly' literals. Saved GRPO checkpoint dirs (output_dir/adapter_dir/merged_dir)
-# use CKPT_SUFFIX instead (below), which also folds in --epochs.
+# hardcoded '-idsonly' literals. 'full' adds '-full' before everything else, matching
+# sft_training_vlm_nodspy_merged.py --mode full's own DATASET_SUFFIX convention -- this makes
+# MODEL_NAME below correctly require/load the full-mode SFT checkpoint. Saved GRPO checkpoint dirs
+# (output_dir/adapter_dir/merged_dir) use CKPT_SUFFIX instead (below), which also folds in --epochs.
+mode_suffix = '-full' if args.mode == 'full' else ''
 variant_infix = '-idsonly' if args.variant == 'idsonly' else ''
 dataset_suffix = f'-{args.dataset}' if args.dataset != 'jrdb' else ''
-DATASET_SUFFIX = f'{variant_infix}{dataset_suffix}'
+DATASET_SUFFIX = f'{mode_suffix}{variant_infix}{dataset_suffix}'
 
 # Only touches saved-checkpoint dirs below (adapter_dir/merged_dir/output_dir), not MODEL_NAME --
 # the starting SFT checkpoint doesn't depend on how many GRPO epochs this run will do. Mirrors
@@ -135,18 +151,17 @@ CKPT_SUFFIX = f'{DATASET_SUFFIX}{epoch_suffix}'
 # exclude_all_singleton is only a parameter on the egogroups_data_utils.py builder (meaningless
 # for jrdb), so the jrdb branch calls its builder plain.
 if args.dataset == 'jrdb':
-    examples = sft_data_utils.build_sft_examples(require_image=True)
+    build_examples = sft_data_utils.build_sft_examples if args.mode == 'single' else sft_data_utils.build_sft_examples_full
+    examples = build_examples(require_image=True)
 elif args.dataset in ('egogroups', 'egogroups-subset'):
-    examples = egogroups_data_utils.build_sft_examples(
+    build_examples = egogroups_data_utils.build_sft_examples if args.mode == 'single' else egogroups_data_utils.build_sft_examples_full
+    examples = build_examples(
         require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-subset'),
     )
-elif args.dataset in ('egogroups-train', 'egogroups-train-subset'):
-    examples = egogroups_train_data_utils.build_sft_examples(
-        require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-train-subset'),
-    )
 else:
-    examples = egogroups_synth_train_data_utils.build_sft_examples(
-        require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-synth-train-subset'),
+    build_examples = egogroups_train_data_utils.build_sft_examples if args.mode == 'single' else egogroups_train_data_utils.build_sft_examples_full
+    examples = build_examples(
+        require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-train-subset'),
     )
 
 scenario_ids = sorted({e['scenario_idx'] for e in examples})
@@ -186,7 +201,26 @@ SYSTEM_PROMPT_IDSONLY = (
     "and no other text. All ids should appear at least once."
 )
 
-SYSTEM_PROMPT = SYSTEM_PROMPT_P1_VISUAL if args.variant == 'p1_visual' else SYSTEM_PROMPT_IDSONLY
+# Copied verbatim from sft_training_vlm_nodspy_full.py's SYSTEM_PROMPT -- single annotated image +
+# movement_direction folded into the detections JSON as text (not a multi-image video).
+SYSTEM_PROMPT_FULL = (
+    "Given detections of people with their 3D positions in a single video frame, compute groups "
+    "of people who are close together. Compute pairwise distances between people and choose a "
+    "reasonable grouping threshold based on the distribution of these distances. People belong to "
+    "the same group if they are spatially close. Return only non-empty groups. Do not merge "
+    "distant people into the same group. Do not hallucinate non-existent person_id.\n\n"
+    "You are given an image with each person's bounding box and id label drawn on them, plus "
+    "a JSON array of the target frame's detections. Each is an object with keys 'person_id', "
+    "'x', 'y', 'z', and 'movement_direction' (their net movement direction across the frames "
+    "leading up to this one, or 'stationary').\n"
+    "Respond with ONLY a JSON object of the form {\"groups\": [[person_id, ...], ...]} "
+    "and no other text. All ids should appear at least once."
+)
+
+if args.mode == 'full':
+    SYSTEM_PROMPT = SYSTEM_PROMPT_FULL
+else:
+    SYSTEM_PROMPT = SYSTEM_PROMPT_P1_VISUAL if args.variant == 'p1_visual' else SYSTEM_PROMPT_IDSONLY
 
 
 def build_user_content(example):

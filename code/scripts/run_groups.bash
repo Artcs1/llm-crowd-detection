@@ -35,7 +35,7 @@ IDS=(10)
 # 10 20 30 40 50)
 
 if [[ "$MODEL_NAME" == *"Cosmos"* ]]; then
-  modes=("vlm_image" "llm") 
+  modes=("vlm_image" "llm")  
 elif [[ "$MODEL_NAME" == *"Qwen3.6-27B"* ]]; then
   modes=("llm")
 elif [[ "$MODEL_NAME" == *"VL"* ]]; then

@@ -19,8 +19,7 @@ def parse_args():
     )
     parser.add_argument(
         '--dataset', type=str,
-        choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
-                 'egogroups-synth-train', 'egogroups-synth-train-subset'],
+        choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py (JRDB_train_fixed_gold, F1_evaluator/out/gt.pkl); "
              "'egogroups' uses egogroups_data_utils.py (gold_SEKAI_900_3, "
@@ -35,7 +34,18 @@ def parse_args():
         help="'p1_visual' sends the bbox/id-annotated image plus numeric x,y,z coordinates "
              "(matching sft_training_vlm_nodspy.py); 'idsonly' sends only the annotated image "
              "plus a bare person_ids list, no coordinates at all (matching "
-             "sft_training_vlm_nodspy_visualonly.py / prompt_method='p1_visual_only')."
+             "sft_training_vlm_nodspy_visualonly.py / prompt_method='p1_visual_only'). Only "
+             "'p1_visual' is supported when --mode full (see --mode)."
+    )
+    parser.add_argument(
+        '--mode', type=str, choices=['single', 'full'], default='single',
+        help="'single' trains on a bare single-frame input (build_sft_examples, matching this "
+             "script's default); 'full' trains on the target frame's detections enriched with a "
+             "per-person 'movement_direction' label computed from every earlier frame in the "
+             "scenario (build_sft_examples_full, matching sft_training_vlm_nodspy_full.py -- "
+             "single annotated image + movement_direction as text, NOT a multi-image video like "
+             "sft_training_vlm_nodspy_full_video.py). Only --variant p1_visual is supported in "
+             "full mode -- no idsonly+full prompt exists in this codebase."
     )
     parser.add_argument(
         '--gpu', type=str, default=None,
@@ -48,7 +58,10 @@ def parse_args():
 
 
 args = parse_args()
-print(f'dataset: {args.dataset}  variant: {args.variant}  gpu: {args.gpu or "(default)"}')
+print(f'dataset: {args.dataset}  variant: {args.variant}  mode: {args.mode}  gpu: {args.gpu or "(default)"}')
+
+if args.mode == 'full' and args.variant == 'idsonly':
+    raise ValueError("--mode full only supports --variant p1_visual (no idsonly+full prompt exists)")
 
 # Must happen before torch is imported (see below) -- avoids the multi-GPU device_map='auto' +
 # Trainer label/hidden-state device-mismatch crash. --gpu overrides the hardcoded default; if
@@ -67,16 +80,18 @@ from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 from trl import SFTConfig, SFTTrainer
 
 import egogroups_data_utils
-import egogroups_synth_train_data_utils
 import egogroups_train_data_utils
 import sft_data_utils
 
 # Suffix applied to every saved checkpoint dir below so runs never clobber each other. Matches
 # the two source scripts' conventions exactly: 'p1_visual'+'jrdb' keeps the original, unsuffixed
-# names; 'idsonly' always adds '-idsonly' before the optional '-egogroups[-subset]'.
+# names; 'idsonly' always adds '-idsonly' before the optional '-egogroups[-subset]'. 'full' adds
+# '-full' before everything else, matching sft_training_vlm_nodspy_full.py's own DATASET_SUFFIX
+# convention ('-full' or '-full-<dataset>').
+mode_suffix = '-full' if args.mode == 'full' else ''
 variant_infix = '-idsonly' if args.variant == 'idsonly' else ''
 dataset_suffix = f'-{args.dataset}' if args.dataset != 'jrdb' else ''
-DATASET_SUFFIX = f'{variant_infix}{dataset_suffix}'
+DATASET_SUFFIX = f'{mode_suffix}{variant_infix}{dataset_suffix}'
 
 # Load ground-truth examples and split by scenario. require_image=True so every example has a
 # matching frame image on disk. Split by scenario_idx (not by individual example) so frames from
@@ -85,18 +100,17 @@ DATASET_SUFFIX = f'{variant_infix}{dataset_suffix}'
 # builder plain; egogroups_data_utils.build_sft_examples also doesn't accept sft_data_utils.py's
 # JRDB-only scenario_range kwarg, so it's omitted for that branch too.
 if args.dataset == 'jrdb':
-    examples = sft_data_utils.build_sft_examples(require_image=True)
+    build_examples = sft_data_utils.build_sft_examples if args.mode == 'single' else sft_data_utils.build_sft_examples_full
+    examples = build_examples(require_image=True)
 elif args.dataset in ('egogroups', 'egogroups-subset'):
-    examples = egogroups_data_utils.build_sft_examples(
+    build_examples = egogroups_data_utils.build_sft_examples if args.mode == 'single' else egogroups_data_utils.build_sft_examples_full
+    examples = build_examples(
         require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-subset'),
     )
-elif args.dataset in ('egogroups-train', 'egogroups-train-subset'):
-    examples = egogroups_train_data_utils.build_sft_examples(
-        require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-train-subset'),
-    )
 else:
-    examples = egogroups_synth_train_data_utils.build_sft_examples(
-        require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-synth-train-subset'),
+    build_examples = egogroups_train_data_utils.build_sft_examples if args.mode == 'single' else egogroups_train_data_utils.build_sft_examples_full
+    examples = build_examples(
+        require_image=True, exclude_all_singleton=(args.dataset == 'egogroups-train-subset'),
     )
 print(f'{len(examples)} image-grounded ground-truth examples across {len({e["scenario_idx"] for e in examples})} scenarios')
 
@@ -138,7 +152,26 @@ SYSTEM_PROMPT_IDSONLY = (
     "and no other text. All ids should appear at least once."
 )
 
-SYSTEM_PROMPT = SYSTEM_PROMPT_P1_VISUAL if args.variant == 'p1_visual' else SYSTEM_PROMPT_IDSONLY
+# Copied verbatim from sft_training_vlm_nodspy_full.py's SYSTEM_PROMPT -- single annotated image +
+# movement_direction folded into the detections JSON as text (not a multi-image video).
+SYSTEM_PROMPT_FULL = (
+    "Given detections of people with their 3D positions in a single video frame, compute groups "
+    "of people who are close together. Compute pairwise distances between people and choose a "
+    "reasonable grouping threshold based on the distribution of these distances. People belong to "
+    "the same group if they are spatially close. Return only non-empty groups. Do not merge "
+    "distant people into the same group. Do not hallucinate non-existent person_id.\n\n"
+    "You are given an image with each person's bounding box and id label drawn on them, plus "
+    "a JSON array of the target frame's detections. Each is an object with keys 'person_id', "
+    "'x', 'y', 'z', and 'movement_direction' (their net movement direction across the frames "
+    "leading up to this one, or 'stationary').\n"
+    "Respond with ONLY a JSON object of the form {\"groups\": [[person_id, ...], ...]} "
+    "and no other text. All ids should appear at least once."
+)
+
+if args.mode == 'full':
+    SYSTEM_PROMPT = SYSTEM_PROMPT_FULL
+else:
+    SYSTEM_PROMPT = SYSTEM_PROMPT_P1_VISUAL if args.variant == 'p1_visual' else SYSTEM_PROMPT_IDSONLY
 
 
 def build_user_content(example):

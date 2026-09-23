@@ -35,7 +35,7 @@ import random
 from utils import get_allframes_bboxes, get_movement_direction
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-EGOTRAIN_DIR = '/home/jmurrugarral/EgoGroups_train'
+EGOTRAIN_DIR = '/lp-dev/jmurrugarral/EgoGroups_train'
 JSONS_TRAIN_DIR = os.path.join(EGOTRAIN_DIR, 'jsons_step4')
 VIDEOS_FRAMES_DIR = os.path.join(EGOTRAIN_DIR, 'videos_frames')
 GT_PKL_PATH = os.path.join(BASE_DIR, 'F1_evaluator', 'out', 'gt_group_10fps_train.pkl')
