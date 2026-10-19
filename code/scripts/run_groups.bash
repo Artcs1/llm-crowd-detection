@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: bash run_groups.bash <model_name> <port> <api_key> <prompt_method> <type>
+# Usage: bash run_groups.bash <model_name> <port> <api_key> <prompt_method> <type> [extra batch_fetch_groups.py args, e.g. --skip_existing]
 # Example:
 #   bash run_groups.bash Qwen/Qwen2.5-VL-3B-Instruct 8081 testkey1 p1 full
 #
@@ -8,7 +8,7 @@
 # modes         = auto-picked from model_name: "vlm_image" (Cosmos/VL models) or "llm" (others)
 # depth_methods = ("naive_3D_60FOV" "unidepth_3D" "detany_3D" "wilddet_3D") --- fixed to wilddet_3D below
 
-if [ "$#" -ne 5 ]; then
+if [ "$#" -lt 5 ]; then
     echo "Usage: $0 <model_name> <port> <api_key> <prompt_method> <type>"
     echo "Example:"
     echo "  $0 Qwen/Qwen2.5-VL-3B-Instruct 8081 testkey1 p1 full"
@@ -26,8 +26,16 @@ API_BASE="http://localhost:${PORT}/v1"
 #frame_path="../../JRDB_fixed_gold/videos_frames"
 #json_path="../../gold_SEKAI_900_3/jsons_step5"
 #frame_path="../../gold_SEKAI_900_3/videos_frames"
-json_path="../../EgoGroups_test/jsons_step6"
-frame_path="../../EgoGroups_test/videos_frames"
+# EGO_DATA=EgoGroups_test_jrdbstyle: the same clips with JRDB-style 3D input (scripts/make_egogroups_jrdbstyle.py).
+# Default when EGO_DATA is unset: a JRDB-trained model ("JRDBTrain" in the served name) is a cross-dataset check, so it
+# gets the 3D convention it was trained with (EgoGroups_test_jrdbstyle); every other model gets EgoGroups_test.
+# Set EGO_DATA=EgoGroups_test explicitly to test a JRDB-trained model on the native EgoGroups 3D.
+if [ -z "$EGO_DATA" ] && [[ "$MODEL_NAME" == *"JRDBTrain"* ]]; then
+  EGO_DATA=EgoGroups_test_jrdbstyle
+fi
+echo "EgoGroups test data: ${EGO_DATA:-EgoGroups_test}"
+json_path="../../${EGO_DATA:-EgoGroups_test}/jsons_step6"
+frame_path="../../${EGO_DATA:-EgoGroups_test}/videos_frames"
 
 # List of group IDs to run
 # IDS=(42 22 2)
@@ -70,7 +78,7 @@ for ID in "${IDS[@]}"; do
         --api_key "$API_KEY" \
         --max_tokens "$max_tokens" \
         --frame_path "$frame_path" \
-        --save_image
+        --save_image "${@:6}"
     done
   done
 done

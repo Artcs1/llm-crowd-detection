@@ -36,10 +36,17 @@ from utils import get_allframes_bboxes, get_movement_direction
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EGOTRAIN_DIR = '/lp-dev/jmurrugarral/EgoGroups_train'
+if not os.path.isdir(EGOTRAIN_DIR):  # the same share is mounted as /data/paola-shared on this workstation
+    EGOTRAIN_DIR = '/data/paola-shared/jmurrugarral/EgoGroups_train'
 JSONS_TRAIN_DIR = os.path.join(EGOTRAIN_DIR, 'jsons_step4')
 VIDEOS_FRAMES_DIR = os.path.join(EGOTRAIN_DIR, 'videos_frames')
 GT_PKL_PATH = os.path.join(BASE_DIR, 'F1_evaluator', 'out', 'gt_group_10fps_train.pkl')
 BASE_CLIP_OFFSET = 901  # scenario_idx = base_clip_number - BASE_CLIP_OFFSET
+# Validation set shared with every other EgoGroups method (DVT scene_split.py, PAR, GroupTrans, RTGD/SHGD/ECCV20):
+# EgoGroups_train clips are ordered by density (0901-1200 scattered, 1201-1800 moderate, 1801-2700 crowded), and the
+# last 60 clips of each density (1141-1200, 1741-1800, 2641-2700) are held out -- 180 clips, 1:1:1 like EgoGroups_test.
+VAL_CLIPS = [*range(1141, 1201), *range(1741, 1801), *range(2641, 2701)]
+VAL_SCENARIOS = {c - BASE_CLIP_OFFSET for c in VAL_CLIPS}  # scenario_idx convention of this loader
 DEFAULT_DEPTH_METHOD = 'detany_3D'
 
 

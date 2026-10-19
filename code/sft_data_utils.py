@@ -7,8 +7,11 @@ Cross-references `F1_evaluator/out/gt.pkl` (real human-authored social-group lab
 (detections [+ image], ground-truth groups) pairs usable directly with the same
 `utils.get_frame_bboxes` helper the rest of the pipeline uses.
 
-There is no fixed formula mapping a gt.pkl frame_key to a shard file/frame_id (verified
-empirically), so matching is done by comparing track-id sets instead.
+A gt_train.pkl frame_key k is shard k of its sequence (`<sequence>_{k:05d}.json`): for all 1705
+JRDB_train_fixed_gold shards the target-frame track ids equal that frame's GT track ids exactly. The
+141 GT frames past a sequence's last shard have no input and are skipped. (Before 2026-10-19 the
+loader took the first shard whose track ids merely contained the GT ids, which picked an earlier
+shard for 940 of the 1773 labeled frames.)
 """
 
 import glob
@@ -23,6 +26,22 @@ JRDB_GOLD_DIR = os.path.join(BASE_DIR, '..', '..', 'JRDB_train_fixed_gold')
 JSONS_GOLD_DIR = os.path.join(JRDB_GOLD_DIR, 'jsons_gold')
 VIDEOS_FRAMES_DIR = os.path.join(JRDB_GOLD_DIR, 'videos_frames')
 GT_PKL_PATH = os.path.join(BASE_DIR, 'F1_evaluator', 'out', 'gt_train.pkl')
+
+# JRDB validation scenes of the baselines (DVT split, same list as RTGD/rtgd_data.py JRDB_VAL); the other 20 are train.
+# Used by the training scripts with --jrdb_val_split; without it they train on all 27 scenes.
+JRDB_VAL_SCENES = ['clark-center-2019-02-28_1', 'gates-ai-lab-2019-02-08_0', 'huang-2-2019-01-25_0', 'meyer-green-2019-03-16_0',
+                   'nvidia-aud-2019-04-18_0', 'tressider-2019-03-16_1', 'tressider-2019-04-26_2']
+
+# LoRA targets of the VLM scripts' --lm_lora: the language model's linear layers only (PEFT full-matches a string
+# target_modules as a regex). Qwen2.5-VL's vision blocks reuse gate/up/down_proj, so names under 'visual' are excluded.
+LM_LORA_TARGETS = r'^(?!.*\bvisual\b).*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj)$'
+
+# --base of the four *_nodspy_merged.py training scripts: {base: {'llm'|'vlm': (HF model id, checkpoint-dir prefix)}}.
+# 'qwen2.5' keeps every existing sft_output/qwen2.5{,-vl}-7b-* name; 'qwen3-4b' writes sft_output/qwen3{,-vl}-4b-*.
+BASE_MODELS = {
+    'qwen2.5': {'llm': ('Qwen/Qwen2.5-7B-Instruct', 'qwen2.5-7b'), 'vlm': ('Qwen/Qwen2.5-VL-7B-Instruct', 'qwen2.5-vl-7b')},
+    'qwen3-4b': {'llm': ('Qwen/Qwen3-4B-Instruct-2507', 'qwen3-4b'), 'vlm': ('Qwen/Qwen3-VL-4B-Instruct', 'qwen3-vl-4b')},
+}
 
 TARGET_FRAME_ID = 15  # every jsons_gold shard is a 15-frame window; frame 15 is the last one
 
@@ -57,13 +76,14 @@ def _load_sequence_shards(sequence_name, target_frame_id=TARGET_FRAME_ID):
     return shards
 
 
-def find_matching_shard(shards, gt_groups):
-    """Return (shard_path, data) for the first shard whose target-frame detections fully
-    contain every track id in gt_groups, or (None, None) if no shard matches."""
+def find_matching_shard(shards, gt_groups, sequence_name, frame_key):
+    """Return (shard_path, data) of shard `<sequence_name>_{frame_key:05d}`, or (None, None) if that shard
+    doesn't exist or its target-frame detections don't contain every track id in gt_groups."""
     gt_ids = {str(x) for group in gt_groups for x in group}
+    wanted = os.path.join(JSONS_GOLD_DIR, f'{sequence_name}_{int(frame_key):05d}.json')
     for shard_path, data, track_ids in shards:
-        if gt_ids.issubset(track_ids):
-            return shard_path, data
+        if shard_path == wanted:
+            return (shard_path, data) if gt_ids.issubset(track_ids) else (None, None)
     return None, None
 
 
@@ -85,7 +105,7 @@ def build_sft_examples(scenario_range=None, require_image=True, target_frame_id=
             if not gt_groups:
                 continue
 
-            shard_path, data = find_matching_shard(shards, gt_groups)
+            shard_path, data = find_matching_shard(shards, gt_groups, sequence_name, frame_key)
             if shard_path is None:
                 continue
 
@@ -143,7 +163,7 @@ def build_sft_examples_full(scenario_range=None, require_image=True, target_fram
             if not gt_groups:
                 continue
 
-            shard_path, data = find_matching_shard(shards, gt_groups)
+            shard_path, data = find_matching_shard(shards, gt_groups, sequence_name, frame_key)
             if shard_path is None:
                 continue
 
@@ -209,7 +229,7 @@ def build_sft_examples_full_video(scenario_range=None, require_image=True, targe
             if not gt_groups:
                 continue
 
-            shard_path, data = find_matching_shard(shards, gt_groups)
+            shard_path, data = find_matching_shard(shards, gt_groups, sequence_name, frame_key)
             if shard_path is None:
                 continue
 

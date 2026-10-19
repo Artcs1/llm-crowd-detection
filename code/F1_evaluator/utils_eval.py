@@ -498,11 +498,71 @@ class Predict_graph:
 
 class Evaluation:
 
-    def __init__(self, whole, alone, pre_dict, GT_dict):
+    def __init__(self, whole, alone, pre_dict, GT_dict, crit="half"):
+        # crit: "half" (default, unchanged), "card", "dpmm", "all", or "exact" (predicted group == GT group)
+        self.crit = crit
         self.whole = whole
         self.alone = alone
         self.pre_dict = pre_dict
         self.GT_dict = GT_dict
+
+    @staticmethod
+    def _half_match(gt_set, group_set, crit="half"):
+        """The "half" criterion of group_eval: pairs must match exactly, otherwise |G n P| / max(|G|, |P|) > 1/2.
+        With crit="exact" the two groups must have exactly the same members."""
+        if crit == "exact":
+            return gt_set == group_set
+        if len(gt_set) == 2 and len(group_set) == 2:
+            return gt_set == group_set
+        return len(gt_set & group_set) / max(len(gt_set), len(group_set)) > 1 / 2
+
+    def size_breakdown(self, buckets=(1, 2, 3, 4, 5), crit=None):
+        """Frame-wise P / R / F1 per group size G1, G2, G3, G4, G5+ (the last bucket is "size >= buckets[-1]"), like the
+        G1..G5 columns of the AP evaluator. Singletons are included (they are G1). A ground-truth group counts for the
+        recall of its own size bucket when some predicted group matches it; a predicted group counts for the precision
+        of its own size bucket when it matches some ground-truth group (same "half" criterion as group_eval). People of
+        a ground-truth frame that appear in no predicted group are added as predicted singletons (cf. add_alone), so
+        methods that only list grouped people are not penalised on G1. Only for whole=False (frame-wise) dicts.
+        Returns {bucket_name: {"P", "R", "F1", "num_GT", "num_GROUP"}}."""
+        crit = crit or self.crit
+
+        def bucket(n):
+            return min(n, buckets[-1])
+
+        tp_gt = {b: 0 for b in buckets}
+        tp_pr = {b: 0 for b in buckets}
+        n_gt = {b: 0 for b in buckets}
+        n_pr = {b: 0 for b in buckets}
+        for scene in self.GT_dict:
+            gt_scene = self.GT_dict[scene]
+            pre_scene = self.pre_dict.get(scene, {}) if isinstance(self.pre_dict.get(scene, {}), dict) else {}
+            for frame, gt_frame in gt_scene.items():
+                gt_groups = [set(g) for g in gt_frame if len(g)]
+                pr_groups = [set(g) for g in pre_scene.get(frame, []) if len(g)]
+                listed = set().union(*pr_groups) if pr_groups else set()
+                pr_groups += [{p} for g in gt_groups for p in g if p not in listed]
+                for g in gt_groups:
+                    n_gt[bucket(len(g))] += 1
+                    if any(self._half_match(g, p, crit) for p in pr_groups):
+                        tp_gt[bucket(len(g))] += 1
+                for p in pr_groups:
+                    n_pr[bucket(len(p))] += 1
+                    if any(self._half_match(g, p, crit) for g in gt_groups):
+                        tp_pr[bucket(len(p))] += 1
+        out = {}
+        for b in buckets:
+            name = "G%d" % b + ("+" if b == buckets[-1] else "")
+            prec = tp_pr[b] / n_pr[b] if n_pr[b] else 0.0
+            rec = tp_gt[b] / n_gt[b] if n_gt[b] else 0.0
+            out[name] = {"P": prec, "R": rec, "F1": 2 * prec * rec / (prec + rec + 1e-8),
+                         "num_GT": n_gt[b], "num_GROUP": n_pr[b]}
+        # "Group": sizes >= 2 pooled (alone vs group split = G1 vs Group); "All": every size pooled (singletons included)
+        for name, keep in (("Group", [b for b in buckets if b >= 2]), ("All", list(buckets))):
+            tg, tp, ng, npr = (sum(d[b] for b in keep) for d in (tp_gt, tp_pr, n_gt, n_pr))
+            prec = tp / npr if npr else 0.0
+            rec = tg / ng if ng else 0.0
+            out[name] = {"P": prec, "R": rec, "F1": 2 * prec * rec / (prec + rec + 1e-8), "num_GT": ng, "num_GROUP": npr}
+        return out
 
     def add_alone(self, whole, gt):
         for scene_id in gt:
@@ -575,6 +635,9 @@ class Evaluation:
                         elif crit == "all":
                             if not len(gt_set - group_set):
                                 TP += 1
+                        elif crit == "exact":
+                            if gt_set == group_set:
+                                TP += 1
 
         else:
             if self.alone == False:
@@ -615,6 +678,9 @@ class Evaluation:
                     elif crit == "all":
                         if not len(gt_set - group_set):
                             TP += 1
+                    elif crit == "exact":
+                        if gt_set == group_set:
+                            TP += 1
 
         FP = num_GROUP - TP
         FN = num_GT - TP
@@ -651,9 +717,9 @@ class Evaluation:
         #for i in range(len(self.GT_dict)):
         for i in keys:
             if i in self.pre_dict:
-                result = self.group_eval(self.pre_dict[i], self.GT_dict[i])
+                result = self.group_eval(self.pre_dict[i], self.GT_dict[i], crit=self.crit)
             else:
-                result = self.group_eval([], self.GT_dict[i])
+                result = self.group_eval([], self.GT_dict[i], crit=self.crit)
             if self.whole == True:
                 #print("PRE : ", sorted(self.pre_dict[i]))
                 #print("GT : ", sorted(self.GT_dict[i]))

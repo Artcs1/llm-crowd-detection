@@ -1,0 +1,14 @@
+name,G1,G2,G3,G4,G5,AP
+results_DVT3_JRDBpretrained_th0.9.txt,92.29,64.81,56.53,52.04,29.23,58.98
+results_Qwen2.5-VL-7B-Instruct-RL-JRDBTrain_vlm_image_detany_3D_p1_visual.txt,84.88,65.66,51.98,40.41,30.36,54.66
+results_full_Qwen2.5-7B-Instruct-RL-JRDBTrain_llm_detany_3D_p1.txt,80.76,63.44,50.01,44.34,31.38,53.99
+results_Qwen2.5-VL-7B-Instruct-SFT-JRDBTrain_vlm_image_detany_3D_p1_visual.txt,85.3,64.15,49.49,37.97,29.63,53.31
+results_full_Qwen2.5-7B-Instruct-RL-EgoGroupTrain_llm_detany_3D_p1.txt,83.55,66.13,50.31,42.3,23.84,53.23
+results_Qwen2.5-7B-Instruct-RL-JRDBTrain_llm_detany_3D_p1.txt,86.88,62.49,47.1,40.17,27.31,52.79
+results_full_Qwen2.5-7B-Instruct-SFT-JRDBTrain_llm_detany_3D_p1.txt,80.2,61.34,47.32,42.69,31.21,52.55
+results_Qwen2.5-VL-7B-Instruct-RL-EgoGroupTrain_vlm_image_detany_3D_p1_visual.txt,91.01,62.37,45.68,39.23,21.9,52.04
+results_Qwen2.5-7B-Instruct-RL-EgoGroupTrain_llm_detany_3D_p1.txt,81.36,61.55,48.47,41.59,24.01,51.39
+results_full_Qwen2.5-7B-Instruct-SFT-EgoGroupTrain_llm_detany_3D_p1.txt,80.79,60.1,45.13,42.53,27.31,51.17
+results_Qwen2.5-7B-Instruct-SFT-JRDBTrain_llm_detany_3D_p1.txt,87.53,60.0,44.96,36.87,25.61,50.99
+results_Qwen2.5-VL-7B-Instruct-SFT-EgoGroupTrain_vlm_image_detany_3D_p1_visual.txt,90.83,60.78,45.21,36.95,20.91,50.94
+results_Qwen2.5-7B-Instruct-SFT-EgoGroupTrain_llm_detany_3D_p1.txt,79.54,58.2,45.56,38.84,24.57,49.34

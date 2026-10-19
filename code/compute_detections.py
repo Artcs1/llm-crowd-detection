@@ -18,10 +18,10 @@ def add_prediction(det_file, idx, int_img, x1, y1, x2, y2, group_id, dc, lvl):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select mode, prompt method, model, and VLM mode")
-    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","EgoGroups_test","gold_SEKAI_900_3"], required=True, help="Dataset options")
+    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_val_fixed_gold","JRDB_fixed_gold_egostyle","JRDB_val_fixed_gold_egostyle","JRDB_fixed","EgoGroups_test","EgoGroups_test_jrdbstyle","gold_SEKAI_900_3"], required=True, help="Dataset options")
     parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
     parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D","wilddet_3D"], default="naive_3D_60FOV", help="Depth method")
-    parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p1_bbox","p2","p3","p4","p5","p1_visual","p1_bbox","p1_visual_only","naive_cluster"], required=True, help="Prompt method")
+    parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p1_bbox","p2","p3","p4","p5","p1_visual","p1_bbox","p1_visual_only","p1_depthanything","p1_visual_depthanything","naive_cluster"], required=True, help="Prompt method")
     parser.add_argument("--model", type=str, required=True, help="Specify the model name or path")
     parser.add_argument("--vlm_mode", type=str, choices=["llm","vlm_image","vlm_text"], required=True, help="VLM mode: image or text")
     parser.add_argument('--frame_id', type=int)
@@ -37,11 +37,15 @@ if __name__ == '__main__':
         H, W = 480, 3760
     elif args.dataset == 'JRDB_fixed_gold':
         H, W = 480, 3760
+    elif args.dataset == 'JRDB_val_fixed_gold':  # the 7 JRDB val scenes (links into JRDB_train_fixed_gold)
+        H, W = 480, 3760
+    elif args.dataset in ('JRDB_fixed_gold_egostyle', 'JRDB_val_fixed_gold_egostyle'):  # same shards, EgoGroups-style 3D
+        H, W = 480, 3760
     elif args.dataset == 'SEKAI_540_3':
         H, W = 1080, 1920
     elif args.dataset == 'gold_SEKAI_900_3':
         H, W = 1080, 1920
-    elif args.dataset == 'EgoGroups_test':
+    elif args.dataset in ('EgoGroups_test', 'EgoGroups_test_jrdbstyle'):
         H, W = 1080, 1920
     
     results_folder = f"../results/predictions/{args.dataset}/results" if args.mode == "single" else f"../results/predictions/{args.dataset}/results_{args.mode}"
@@ -94,8 +98,12 @@ if __name__ == '__main__':
         last = file.split('/')
         json_file = f'{file}/{last[-1]}.json'
     
-        with open(json_file, 'r') as f:
-            data = json.load(f)
+        try:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:  # e.g. an empty file from an interrupted write: the frame then has
+            print(f'skipping unreadable {json_file}: {e}')       # no predictions, instead of aborting the whole conversion
+            data = None
     
         scenario       = last[-1]
 
@@ -107,12 +115,13 @@ if __name__ == '__main__':
             idx   = int(int(scenario.split('_')[-1])) - 1
             number   = 0
             dc, int_img, lvl, group_id = 1, (number+1)*1, 1, 1
-        elif args.dataset == 'EgoGroups_test':
+        elif args.dataset in ('EgoGroups_test', 'EgoGroups_test_jrdbstyle'):
             split_scenario = scenario.split('_')
             orig_scenario  = "".join(split_scenario[:-1]) 
             number   = int(split_scenario[-1])
             scenarios.add(orig_scenario)
-            dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*10, 1, 1
+            # clip_0001 -> seq 0, as in the GT; counting distinct clips would shift every clip after a missing one
+            dc, idx, int_img, lvl, group_id = 1, int(split_scenario[1])-1, (number+1)*10, 1, 1
 
         else:
             split_scenario = scenario.split('_')
@@ -122,6 +131,8 @@ if __name__ == '__main__':
             dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*15, 1, 1
 
         predicted_groups = []
+        if data is None:  # skipped above, after the scene bookkeeping so later scene indices don't shift
+            continue
     
         if 'baseline' in args.prompt_method:
             groups = data['groups']

@@ -19,6 +19,15 @@ def main():
     collected_files.sort()
     #collected_files = collected_files[::-1]
 
+    if args.skip_existing:  # resume: drop keyframes that already have a saved prediction
+        done = lambda name: os.path.join('../results/predictions', args.frame_path.split('/')[-2], 'results' if args.setting == 'single' else 'results_full',
+                                         args.model.split('/')[1], args.mode, args.depth_method, args.prompt_method, str(args.frame_id), name, f'{name}.json')
+        n = len(collected_files)
+        collected_files = [f for f in collected_files if not os.path.exists(done(f.split('/')[-1][:-5]))]
+        print(f'skip_existing: {n - len(collected_files)} done, {len(collected_files)} to run')
+
+    collected_files = collected_files[args.part_id::args.num_parts]  # --num_parts/--part_id: interleaved split
+
     for current_file in tqdm(collected_files):
 
         #try:

@@ -507,6 +507,9 @@ def parse_args():
     parser.add_argument('--frame_path', type=str, default='VBIG_dataset/videos_frames', help='Path to frame for visualization')
     parser.add_argument("--save_image", action="store_true", help="Save Image")
     parser.add_argument('--start', type=str, default = 0)
+    parser.add_argument('--skip_existing', action='store_true', help='Skip keyframes that already have a saved prediction (resume a run)')
+    parser.add_argument('--num_parts', type=int, default=1, help='Split the keyframes into this many parts (one client per part)')
+    parser.add_argument('--part_id', type=int, default=0, help='Which part this client runs, 0..num_parts-1')
     return parser.parse_args()
 
 

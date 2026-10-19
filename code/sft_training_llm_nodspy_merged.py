@@ -17,7 +17,8 @@ def parse_args():
     parser.add_argument(
         '--dataset', type=str,
         choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
-                 'egogroups-synth-train', 'egogroups-synth-train-subset'],
+                 'egogroups-synth-train', 'egogroups-synth-train-subset',
+                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py (JRDB_train_fixed_gold, F1_evaluator/out/gt.pkl); "
              "'egogroups' uses egogroups_data_utils.py (gold_SEKAI_900_3, "
@@ -41,6 +42,24 @@ def parse_args():
              "default GPU below. If omitted, respects an already-exported CUDA_VISIBLE_DEVICES "
              "env var, falling back to the hardcoded default otherwise. Parsed this early in the "
              "file (before torch/etc. are imported) specifically so this can take effect."
+    )
+    parser.add_argument(
+        '--jrdb_val_split', action='store_true',
+        help="Only with --dataset jrdb: train on the 20 JRDB train scenes and validate on the 7 val scenes of the "
+             "baselines (sft_data_utils.JRDB_VAL_SCENES). Checkpoints get a '-jrdbtrain' suffix (RL then loads the "
+             "SFT model with the same suffix). Without it, all 27 scenes are used for training."
+    )
+    parser.add_argument(
+        '--ego_val_split', action='store_true',
+        help="Only with --dataset egogroups-train[-subset]: hold out the 180 EgoGroups_train val clips shared with the "
+             "baselines (egogroups_train_data_utils.VAL_SCENARIOS) and train on the other 1620. Checkpoints get a "
+             "'-valsplit' suffix (RL then loads the SFT model with the same suffix). Without it, all 1800 clips are "
+             "used for training (the checkpoints of the paper tables)."
+    )
+    parser.add_argument(
+        '--base', type=str, choices=['qwen2.5', 'qwen3-4b'], default='qwen2.5',
+        help="Base model (sft_data_utils.BASE_MODELS): 'qwen2.5' = Qwen/Qwen2.5-7B-Instruct (default; the checkpoints of the paper "
+             "tables), 'qwen3-4b' = Qwen/Qwen3-4B-Instruct-2507. Checkpoint dirs start with the base's prefix (qwen2.5-7b-* / qwen3-4b-*)."
     )
     return parser.parse_args()
 
@@ -74,6 +93,10 @@ import sft_data_utils
 # working unchanged); 'full' always adds '-full' before the optional '-egogroups'.
 mode_suffix = '-full' if args.mode == 'full' else ''
 dataset_suffix = f'-{args.dataset}' if args.dataset != 'jrdb' else ''
+if args.dataset == 'jrdb' and args.jrdb_val_split:
+    dataset_suffix = '-jrdbtrain'
+if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_val_split:
+    dataset_suffix += '-valsplit'
 DATASET_SUFFIX = f'{mode_suffix}{dataset_suffix}'
 
 # Load ground-truth examples and split by scenario. For 'jrdb', build_sft_examples[_full] (in
@@ -100,8 +123,10 @@ elif args.dataset in ('egogroups-train', 'egogroups-train-subset'):
     examples = build_examples(require_image=False, exclude_all_singleton=(args.dataset == 'egogroups-train-subset'))
 else:
     # EgoGroups_Synth_train: last frame of each 24-frame synthetic clip, exact gt_3D coordinates.
+    if args.dataset.startswith('egogroups-synth-detail-train'):
+        egogroups_synth_train_data_utils.set_synth_dir(egogroups_synth_train_data_utils.SYNTH_DETAIL_DIR)
     build_examples = egogroups_synth_train_data_utils.build_sft_examples if args.mode == 'single' else egogroups_synth_train_data_utils.build_sft_examples_full
-    examples = build_examples(require_image=False, exclude_all_singleton=(args.dataset == 'egogroups-synth-train-subset'))
+    examples = build_examples(require_image=False, exclude_all_singleton=args.dataset.endswith('-subset'))
 print(f'{len(examples)} ground-truth examples across {len({e["scenario_idx"] for e in examples})} scenarios')
 
 scenario_ids = sorted({e['scenario_idx'] for e in examples})
@@ -110,6 +135,18 @@ val_scenarios = set(scenario_ids[-100:])  # hold out the last of N scenarios ent
 
 train_examples = [e for e in examples]  # if e['scenario_idx'] not in val_scenarios]
 val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+
+if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_val_split:
+    # EgoGroups_train: hold out the shared 60/60/60 validation clips (never trained on), like every other method
+    val_scenarios = egogroups_train_data_utils.VAL_SCENARIOS
+    train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
+    val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+
+if args.dataset == 'jrdb' and args.jrdb_val_split:
+    # JRDB: hold out the 7 val scenes of the baselines (never trained on)
+    val_scenarios = {e['scenario_idx'] for e in examples if e['sequence_name'] in sft_data_utils.JRDB_VAL_SCENES}
+    train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
+    val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
 
 print(f'train: {len(train_examples)} examples, val: {len(val_examples)} examples')
 print(f'held-out scenarios: {sorted(val_scenarios)}')
@@ -175,7 +212,7 @@ print(train_dataset, val_dataset)
 # Load Qwen/Qwen2.5-7B-Instruct + standard LoRA config. LoraConfig is passed straight to
 # SFTTrainer below (peft_config=), which wraps the model with get_peft_model internally -- no
 # manual PEFT wrapping needed.
-MODEL_NAME = 'Qwen/Qwen2.5-7B-Instruct'
+MODEL_NAME, CKPT_PREFIX = sft_data_utils.BASE_MODELS[args.base]['llm']
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16).to('cuda')
@@ -193,13 +230,16 @@ lora_config = LoraConfig(
 # turn only (it auto-swaps in a chat template with {% generation %} markers if the tokenizer's
 # default template lacks them -- no manual labels = -100 masking loop needed).
 sft_config = SFTConfig(
-    output_dir=f'sft_output/qwen2.5-7b-groups-lora-nodspy{DATASET_SUFFIX}',
+    output_dir=f'sft_output/{CKPT_PREFIX}-groups-lora-nodspy{DATASET_SUFFIX}',
     num_train_epochs=3,
     per_device_train_batch_size=2,
     gradient_accumulation_steps=8,
     learning_rate=1e-4,
     bf16=True,
     assistant_only_loss=True,
+    max_length=8192,  # SFTConfig defaults to 1024, but JRDB frames reach ~2.9K tokens (single) / ~4.6K (full): at
+                       # 1024, 58% of JRDB single examples lost their whole answer to truncation, so batches with no
+                       # loss tokens gave loss 0/0 = NaN and destroyed the LoRA weights (--jrdb_val_split, Oct 2026).
     logging_steps=10,
     eval_strategy='epoch',
     save_strategy='epoch',
@@ -218,8 +258,8 @@ trainer = SFTTrainer(
 trainer.train()
 
 # Save the LoRA adapter and a merged checkpoint.
-adapter_dir = f'sft_output/qwen2.5-7b-groups-lora-nodspy{DATASET_SUFFIX}'
-merged_dir = f'sft_output/qwen2.5-7b-groups-merged-nodspy{DATASET_SUFFIX}'
+adapter_dir = f'sft_output/{CKPT_PREFIX}-groups-lora-nodspy{DATASET_SUFFIX}'
+merged_dir = f'sft_output/{CKPT_PREFIX}-groups-merged-nodspy{DATASET_SUFFIX}'
 
 trainer.save_model(adapter_dir)
 tokenizer.save_pretrained(adapter_dir)

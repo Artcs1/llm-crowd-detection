@@ -1,0 +1,19 @@
+# VLM checkpoints that were only tested with p1 but trained with p1_visual. Run from code/.
+# GPU 3 is busy with SFT-Synth-Detail p1_visual (port 8026); GPUs 1 and 2 are free (two 0.48 servers fit on each).
+# A watcher scores each run when it finishes and regenerates the paper tables (they switch to p1_visual by themselves).
+
+# SFT VLM Synth, single, GPU 1, port 8040
+CUDA_VISIBLE_DEVICES=1 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-vl-7b-groups-merged-nodspy-egogroups-synth-train --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-SFT-Synth --api-key SFT-VLM-synth-p1v --port 8040 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-SFT-Synth 8040 SFT-VLM-synth-p1v p1_visual single
+
+# RL VLM Synth, single, GPU 1, port 8041
+CUDA_VISIBLE_DEVICES=1 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-vl-7b-groups-grpo-merged-fourlosses-egogroups-synth-train-1ep --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-RL-Synth --api-key RL-VLM-synth-p1v --port 8041 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-RL-Synth 8041 RL-VLM-synth-p1v p1_visual single
+
+# SFT VLM real data, video (full), GPU 2, port 8042
+CUDA_VISIBLE_DEVICES=2 vllm serve /data/paola-shared/jmurrugarral/llm-crowd-detection/code/sft_output/qwen2.5-vl-7b-groups-merged-nodspy-full-egogroups-train --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-SFT --api-key SFT-VLM-full-p1v --port 8042 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-SFT 8042 SFT-VLM-full-p1v p1_visual full
+
+# RL VLM real data, video (full), GPU 2, port 8043
+CUDA_VISIBLE_DEVICES=2 vllm serve /data/paola-shared/jmurrugarral/llm-crowd-detection/code/sft_output/qwen2.5-vl-7b-groups-grpo-merged-fourlosses-full-egogroups-train-1ep --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-RL --api-key RL-VLM-full-p1v --port 8043 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-RL 8043 RL-VLM-full-p1v p1_visual full

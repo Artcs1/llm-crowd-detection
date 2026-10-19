@@ -7,6 +7,9 @@ Differences from EgoGroups_train:
   - GT is one pickle, gt_group_train.pkl, keyed {clip_idx: {str(frame_id - 1): groups}} for every
     frame; clip_idx is the position in sorted(jsons_step2/*.json) (see gt_group.py). Only the last
     frame is used as the target, mirroring EgoGroups_train.
+
+EgoGroups_Synth_detail_train (3200 clips) has the identical layout; select it with
+set_synth_dir(SYNTH_DETAIL_DIR) before building examples.
 """
 
 import glob
@@ -17,6 +20,7 @@ import pickle
 from utils import get_allframes_bboxes, get_movement_direction
 
 SYNTH_DIR = '/home/jmurrugarral/EgoGroups_Synth_train'
+SYNTH_DETAIL_DIR = '/data/paola-shared/jmurrugarral/EgoGroups_Synth_detail_train'
 JSONS_DIR = os.path.join(SYNTH_DIR, 'jsons_step3')
 VIDEOS_FRAMES_DIR = os.path.join(SYNTH_DIR, 'videos_frames')
 GT_PKL_PATH = os.path.join(SYNTH_DIR, 'gt_group_train.pkl')
@@ -24,6 +28,16 @@ DEFAULT_DEPTH_METHOD = 'gt_3D'
 FULL_WINDOW = 10  # frames used for movement_direction, matching EgoGroups_train's 10-frame clips
 
 _clip_names = None
+
+
+def set_synth_dir(path):
+    """Point the loader at another dataset root with the same layout (e.g. SYNTH_DETAIL_DIR)."""
+    global SYNTH_DIR, JSONS_DIR, VIDEOS_FRAMES_DIR, GT_PKL_PATH, _clip_names
+    SYNTH_DIR = path
+    JSONS_DIR = os.path.join(path, 'jsons_step3')
+    VIDEOS_FRAMES_DIR = os.path.join(path, 'videos_frames')
+    GT_PKL_PATH = os.path.join(path, 'gt_group_train.pkl')
+    _clip_names = None
 
 
 def load_gt():

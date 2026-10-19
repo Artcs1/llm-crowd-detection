@@ -7,6 +7,10 @@ parser = argparse.ArgumentParser(description="Evaluate prediction pickle file")
 parser.add_argument("--det", type=str, required=True, help="Path to the detected pickle file")
 parser.add_argument("--gt", type=str, required=True, help="Path to the GT pickle file")
 parser.add_argument("--o", type=str, required=True, help="Partition result")
+parser.add_argument("--crit", type=str, default="half", choices=["half", "card", "dpmm", "all", "exact"],
+                    help="group matching criterion (default half; exact = same members)")
+parser.add_argument("--by_size", action="store_true",
+                    help="also print P / R / F1 per group size G1, G2, G3, G4, G5+ (singletons included for G1)")
 args = parser.parse_args()
 
 with open(args.det, "rb") as f:
@@ -151,7 +155,8 @@ Evaluater = Evaluation(
                   # false "singleton", leaving nothing to evaluate).
     alone=False,#True,
     pre_dict=pred,
-    GT_dict=gt
+    GT_dict=gt,
+    crit=args.crit,
 )
 
 pre_d, rec_d, f1_d = Evaluater()
@@ -159,3 +164,8 @@ pre_d, rec_d, f1_d = Evaluater()
 print(pre_d)
 print(rec_d)
 print(f1_d)
+
+if args.by_size:
+    breakdown = Evaluation(whole=False, alone=True, pre_dict=pred, GT_dict=gt, crit=args.crit).size_breakdown()
+    for name, m in breakdown.items():
+        print("%s P %.4f R %.4f F1 %.4f (GT %d, pred %d)" % (name, m["P"], m["R"], m["F1"], m["num_GT"], m["num_GROUP"]))

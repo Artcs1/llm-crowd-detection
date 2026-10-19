@@ -8,7 +8,8 @@
 # modes         = auto-picked from model_name: "vlm_image" (Cosmos/VL models) or "llm" (others)
 # depth_methods = ("naive_3D_60FOV" "unidepth_3D" "detany_3D" "wilddet_3D") --- fixed to wilddet_3D below
 
-if [ "$#" -ne 5 ]; then
+# JRDB_SPLIT=JRDB_val_fixed_gold bash ... runs the 7 JRDB val scenes instead of JRDB test; args after the 5th go to batch_fetch_groups.py
+if [ "$#" -lt 5 ]; then
     echo "Usage: $0 <model_name> <port> <api_key> <prompt_method> <type>"
     echo "Example:"
     echo "  $0 Qwen/Qwen2.5-VL-3B-Instruct 8081 testkey1 p1 full"
@@ -22,8 +23,15 @@ PROMPT_METHOD=$4
 TYPE=$5
 API_BASE="http://localhost:${PORT}/v1"
 
-json_path="../../JRDB_fixed_gold/jsons_gold"
-frame_path="../../JRDB_fixed_gold/videos_frames"
+# Default when JRDB_SPLIT is unset: an EgoGroups-trained model ("EgoGroupTrain" or "egogroups" in the served name) is a
+# cross-dataset check, so it gets the 3D convention it was trained with (JRDB_fixed_gold_egostyle); every other model
+# gets JRDB_fixed_gold. Set JRDB_SPLIT=JRDB_fixed_gold explicitly to test an EgoGroups-trained model on native JRDB 3D.
+if [ -z "$JRDB_SPLIT" ] && [[ "$MODEL_NAME" == *"EgoGroupTrain"* || "$MODEL_NAME" == *"egogroups"* ]]; then
+  JRDB_SPLIT=JRDB_fixed_gold_egostyle
+fi
+echo "JRDB data: ${JRDB_SPLIT:-JRDB_fixed_gold}"
+json_path="../../${JRDB_SPLIT:-JRDB_fixed_gold}/jsons_gold"
+frame_path="../../${JRDB_SPLIT:-JRDB_fixed_gold}/videos_frames"
 #json_path="../../gold_SEKAI_900_3/jsons_step5"
 #frame_path="../../gold_SEKAI_900_3/videos_frames"
 #json_path="../../EgoGroups_test/jsons_step6"
@@ -70,7 +78,7 @@ for ID in "${IDS[@]}"; do
         --api_key "$API_KEY" \
         --max_tokens "$max_tokens" \
         --frame_path "$frame_path" \
-        --save_image
+        --save_image "${@:6}"
     done
   done
 done

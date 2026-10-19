@@ -21,7 +21,8 @@ def parse_args():
     parser.add_argument(
         '--dataset', type=str,
         choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
-                 'egogroups-synth-train', 'egogroups-synth-train-subset'],
+                 'egogroups-synth-train', 'egogroups-synth-train-subset',
+                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py + the jrdb-trained SFT checkpoint; 'egogroups' uses "
              "egogroups_data_utils.py + the egogroups-trained SFT checkpoint; 'egogroups-train' "
@@ -83,6 +84,37 @@ def parse_args():
              "long sequences per forward/backward pass) -- watch for OOM, this config was "
              "previously tuned down specifically to avoid that."
     )
+    parser.add_argument(
+        '--jrdb_val_split', action='store_true',
+        help="Only with --dataset jrdb: train on the 20 JRDB train scenes and validate on the 7 val scenes of the "
+             "baselines (sft_data_utils.JRDB_VAL_SCENES). Checkpoints get a '-jrdbtrain' suffix (RL then loads the "
+             "SFT model with the same suffix). Without it, all 27 scenes are used for training."
+    )
+    parser.add_argument(
+        '--init_model', type=str, default=None,
+        help="Start GRPO from this merged checkpoint (e.g. a finished GRPO run, to add more epochs on top of it) "
+             "instead of the SFT checkpoint of --dataset/--mode. A fresh LoRA is trained on top of it and the KL "
+             "reference is this checkpoint. Checkpoints get an extra '-plus<epochs>ep' suffix."
+    )
+    parser.add_argument(
+        '--rl_on_val', action='store_true',
+        help="Only with --dataset jrdb --jrdb_val_split: start from the same 20-scene SFT checkpoint but run GRPO on "
+             "the 7 JRDB val scenes (frames the SFT never saw) instead of the 20 train scenes, to test whether RL "
+             "gains more on unseen frames. Checkpoints get an extra '-rlval' suffix; val can't be used for model "
+             "selection afterwards, so evaluate on JRDB test."
+    )
+    parser.add_argument(
+        '--ego_val_split', action='store_true',
+        help="Only with --dataset egogroups-train[-subset]: hold out the 180 EgoGroups_train val clips shared with the "
+             "baselines (egogroups_train_data_utils.VAL_SCENARIOS) and train on the other 1620. Checkpoints get a "
+             "'-valsplit' suffix (RL then loads the SFT model with the same suffix). Without it, all 1800 clips are "
+             "used for training (the checkpoints of the paper tables)."
+    )
+    parser.add_argument(
+        '--base', type=str, choices=['qwen2.5', 'qwen3-4b'], default='qwen2.5',
+        help="Base model (sft_data_utils.BASE_MODELS): 'qwen2.5' = Qwen/Qwen2.5-7B-Instruct (default; the checkpoints of the paper "
+             "tables), 'qwen3-4b' = Qwen/Qwen3-4B-Instruct-2507. Checkpoint dirs start with the base's prefix (qwen2.5-7b-* / qwen3-4b-*), and RL loads the SFT checkpoint of the same base."
+    )
     return parser.parse_args()
 
 
@@ -139,6 +171,10 @@ _grpo_trainer_module.is_rich_available = lambda: False
 # resolves to that script's actual output path for the same --dataset/--mode.
 mode_suffix = '-full' if args.mode == 'full' else ''
 dataset_suffix = f'-{args.dataset}' if args.dataset != 'jrdb' else ''
+if args.dataset == 'jrdb' and args.jrdb_val_split:
+    dataset_suffix = '-jrdbtrain'
+if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_val_split:
+    dataset_suffix += '-valsplit'
 DATASET_SUFFIX = f'{mode_suffix}{dataset_suffix}'
 
 # Only touches saved-checkpoint dirs below (adapter_dir/merged_dir/output_dir), not MODEL_NAME --
@@ -146,6 +182,12 @@ DATASET_SUFFIX = f'{mode_suffix}{dataset_suffix}'
 epoch_suffix = '' if args.epochs == 6 else f'-{args.epochs}ep'
 prompts_suffix = '' if args.prompts_per_step == 1 else f'-{args.prompts_per_step}p'
 CKPT_SUFFIX = f'{DATASET_SUFFIX}{epoch_suffix}{prompts_suffix}'
+if args.rl_on_val:
+    CKPT_SUFFIX += '-rlval'
+if args.init_model:  # extra epochs count up from the init's own -plusNep, so a -plus1ep init gives -plus2ep (never overwrites it)
+    import re
+    _prev = re.search(r'-plus(\d+)ep$', args.init_model.rstrip('/'))
+    CKPT_SUFFIX += f'-plus{args.epochs + (int(_prev.group(1)) if _prev else 0)}ep'
 
 # exclude_all_singleton is only a parameter on the egogroups_data_utils.py builders (meaningless
 # for jrdb), so the jrdb branch calls its builder plain.
@@ -160,14 +202,32 @@ elif args.dataset in ('egogroups-train', 'egogroups-train-subset'):
     examples = build_examples(require_image=False, exclude_all_singleton=(args.dataset == 'egogroups-train-subset'))
 else:
     # EgoGroups_Synth_train: last frame of each 24-frame synthetic clip, exact gt_3D coordinates.
+    if args.dataset.startswith('egogroups-synth-detail-train'):
+        egogroups_synth_train_data_utils.set_synth_dir(egogroups_synth_train_data_utils.SYNTH_DETAIL_DIR)
     build_examples = egogroups_synth_train_data_utils.build_sft_examples if args.mode == 'single' else egogroups_synth_train_data_utils.build_sft_examples_full
-    examples = build_examples(require_image=False, exclude_all_singleton=(args.dataset == 'egogroups-synth-train-subset'))
+    examples = build_examples(require_image=False, exclude_all_singleton=args.dataset.endswith('-subset'))
 
 scenario_ids = sorted({e['scenario_idx'] for e in examples})
 val_scenarios = set(scenario_ids[-3:])  # same held-out split as the source scripts
 
 train_examples = [e for e in examples]  # if e['scenario_idx'] not in val_scenarios]
 val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+
+if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_val_split:
+    # EgoGroups_train: hold out the shared 60/60/60 validation clips (never trained on), like every other method
+    val_scenarios = egogroups_train_data_utils.VAL_SCENARIOS
+    train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
+    val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+
+if args.dataset == 'jrdb' and args.jrdb_val_split:
+    # JRDB: hold out the 7 val scenes of the baselines (never trained on)
+    val_scenarios = {e['scenario_idx'] for e in examples if e['sequence_name'] in sft_data_utils.JRDB_VAL_SCENES}
+    train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
+    val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+
+if args.rl_on_val:
+    assert args.dataset == 'jrdb' and args.jrdb_val_split, '--rl_on_val needs --dataset jrdb --jrdb_val_split'
+    train_examples = list(val_examples)  # GRPO on the 7 val scenes the SFT never saw
 
 print(f'train: {len(train_examples)} examples, val: {len(val_examples)} examples')
 print(f'held-out scenarios: {sorted(val_scenarios)}')
@@ -355,7 +415,10 @@ print('malformed JSON:            ARI=%+.3f  validity=%+.3f  pairwise_F1=%+.3f  
 
 # The SFT checkpoint matching this --dataset/--mode (sft_training_llm_nodspy_merged.py's
 # merged_dir for the same DATASET_SUFFIX) -- must exist on disk before this script can run.
-MODEL_NAME = f'sft_output/qwen2.5-7b-groups-merged-nodspy{DATASET_SUFFIX}'
+CKPT_PREFIX = sft_data_utils.BASE_MODELS[args.base]['llm'][1]
+MODEL_NAME = f'sft_output/{CKPT_PREFIX}-groups-merged-nodspy{DATASET_SUFFIX}'
+if args.init_model:  # continue from an existing merged (e.g. GRPO) checkpoint instead of the SFT one
+    MODEL_NAME = args.init_model
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
@@ -412,7 +475,7 @@ class SaveMergedEachEpochCallback(TrainerCallback):
             return
         model = kwargs['model']
         epoch_num = int(round(state.epoch))
-        epoch_dir = f'sft_output/qwen2.5-7b-groups-grpo-merged-fourlosses{CKPT_SUFFIX}-epoch{epoch_num}'
+        epoch_dir = f'sft_output/{CKPT_PREFIX}-groups-grpo-merged-fourlosses{CKPT_SUFFIX}-epoch{epoch_num}'
 
         model.base_model.merge_adapter()
         raw_sd = model.get_base_model().state_dict()
@@ -433,7 +496,7 @@ class SaveMergedEachEpochCallback(TrainerCallback):
 
 
 grpo_config_b = GRPOConfig(
-    output_dir=f'sft_output/qwen2.5-7b-groups-grpo-lora-fourlosses{CKPT_SUFFIX}',
+    output_dir=f'sft_output/{CKPT_PREFIX}-groups-grpo-lora-fourlosses{CKPT_SUFFIX}',
     use_vllm=True,
     vllm_mode='colocate',
     vllm_gpu_memory_utilization=0.25,  # lowered from 0.3 -- was OOMing (needed 27.2GiB, 26.89GiB free)
@@ -491,8 +554,8 @@ trainer_b.train()
 
 trainer = trainer_b
 
-adapter_dir = f'sft_output/qwen2.5-7b-groups-grpo-lora-fourlosses{CKPT_SUFFIX}'
-merged_dir = f'sft_output/qwen2.5-7b-groups-grpo-merged-fourlosses{CKPT_SUFFIX}'
+adapter_dir = f'sft_output/{CKPT_PREFIX}-groups-grpo-lora-fourlosses{CKPT_SUFFIX}'
+merged_dir = f'sft_output/{CKPT_PREFIX}-groups-grpo-merged-fourlosses{CKPT_SUFFIX}'
 
 trainer.save_model(adapter_dir)
 tokenizer.save_pretrained(adapter_dir)

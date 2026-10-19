@@ -1,0 +1,73 @@
+# Synth (no detail) checkpoints on EgoGroups_test. Run run_groups.bash from code/. LLM on GPUs 1-2, VLM on GPU 3 (p1_visual = training prompt).
+
+# SFT LLM synth single, GPU 1, port 8030
+CUDA_VISIBLE_DEVICES=1 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-merged-nodspy-egogroups-synth-train --served-model-name Qwen/Qwen2.5-7B-Instruct-SFT-Synth --api-key SFT-LLM-synth --port 8030 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-SFT-Synth 8030 SFT-LLM-synth p1 single
+
+# RL LLM synth single, GPU 2, port 8031
+CUDA_VISIBLE_DEVICES=2 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-grpo-merged-fourlosses-egogroups-synth-train-1ep --served-model-name Qwen/Qwen2.5-7B-Instruct-RL-Synth --api-key RL-LLM-synth --port 8031 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-RL-Synth 8031 RL-LLM-synth p1 single
+
+# SFT LLM synth full, GPU 1, port 8032
+CUDA_VISIBLE_DEVICES=1 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-merged-nodspy-full-egogroups-synth-train --served-model-name Qwen/Qwen2.5-7B-Instruct-SFT-Synth --api-key SFT-LLM-synth-full --port 8032 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-SFT-Synth 8032 SFT-LLM-synth-full p1 full
+
+# RL LLM synth full, GPU 2, port 8033
+CUDA_VISIBLE_DEVICES=2 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-grpo-merged-fourlosses-full-egogroups-synth-train-1ep --served-model-name Qwen/Qwen2.5-7B-Instruct-RL-Synth --api-key RL-LLM-synth-full --port 8033 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-RL-Synth 8033 RL-LLM-synth-full p1 full
+
+# SFT VLM synth single, GPU 3, port 8034
+CUDA_VISIBLE_DEVICES=3 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-vl-7b-groups-merged-nodspy-egogroups-synth-train --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-SFT-Synth --api-key SFT-VLM-synth --port 8034 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-SFT-Synth 8034 SFT-VLM-synth p1_visual single
+
+# RL VLM synth single, GPU 3, port 8035
+CUDA_VISIBLE_DEVICES=3 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-vl-7b-groups-grpo-merged-fourlosses-egogroups-synth-train-1ep --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-RL-Synth --api-key RL-VLM-synth --port 8035 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-RL-Synth 8035 RL-VLM-synth p1_visual single
+
+# SFT LLM synth-ego12 single, GPU 1, port 8036
+CUDA_VISIBLE_DEVICES=1 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-merged-nodspy-egogroups-synth-ego12-train --served-model-name Qwen/Qwen2.5-7B-Instruct-SFT-Synth-Ego12 --api-key SFT-LLM-synth-ego12 --port 8036 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-SFT-Synth-Ego12 8036 SFT-LLM-synth-ego12 p1 single
+
+# RL LLM synth-ego12 single, GPU 2, port 8037
+CUDA_VISIBLE_DEVICES=2 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-grpo-merged-fourlosses-egogroups-synth-ego12-train-1ep --served-model-name Qwen/Qwen2.5-7B-Instruct-RL-Synth-Ego12 --api-key RL-LLM-synth-ego12 --port 8037 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-RL-Synth-Ego12 8037 RL-LLM-synth-ego12 p1 single
+
+# SFT LLM synth-ego12 full, GPU 1, port 8038
+CUDA_VISIBLE_DEVICES=1 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-merged-nodspy-full-egogroups-synth-ego12-train --served-model-name Qwen/Qwen2.5-7B-Instruct-SFT-Synth-Ego12 --api-key SFT-LLM-synth-ego12-full --port 8038 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-SFT-Synth-Ego12 8038 SFT-LLM-synth-ego12-full p1 full
+
+# RL LLM synth-ego12 full, GPU 2, port 8039
+CUDA_VISIBLE_DEVICES=2 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-grpo-merged-fourlosses-full-egogroups-synth-ego12-train-1ep --served-model-name Qwen/Qwen2.5-7B-Instruct-RL-Synth-Ego12 --api-key RL-LLM-synth-ego12-full --port 8039 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-RL-Synth-Ego12 8039 RL-LLM-synth-ego12-full p1 full
+
+# SFT VLM synth-ego12 single, GPU 3, port 8040
+CUDA_VISIBLE_DEVICES=3 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-vl-7b-groups-merged-nodspy-egogroups-synth-ego12-train --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-SFT-Synth-Ego12 --api-key SFT-VLM-synth-ego12 --port 8040 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-SFT-Synth-Ego12 8040 SFT-VLM-synth-ego12 p1_visual single
+
+# RL VLM synth-ego12 single, GPU 3, port 8041
+CUDA_VISIBLE_DEVICES=3 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-vl-7b-groups-grpo-merged-fourlosses-egogroups-synth-ego12-train-1ep --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-RL-Synth-Ego12 --api-key RL-VLM-synth-ego12 --port 8041 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-RL-Synth-Ego12 8041 RL-VLM-synth-ego12 p1_visual single
+
+# SFT LLM synth-notop single, GPU 1, port 8042
+CUDA_VISIBLE_DEVICES=1 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-merged-nodspy-egogroups-synth-notop-train --served-model-name Qwen/Qwen2.5-7B-Instruct-SFT-Synth-NoTop --api-key SFT-LLM-synth-notop --port 8042 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-SFT-Synth-NoTop 8042 SFT-LLM-synth-notop p1 single
+
+# RL LLM synth-notop single, GPU 2, port 8043
+CUDA_VISIBLE_DEVICES=2 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-grpo-merged-fourlosses-egogroups-synth-notop-train-1ep --served-model-name Qwen/Qwen2.5-7B-Instruct-RL-Synth-NoTop --api-key RL-LLM-synth-notop --port 8043 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-RL-Synth-NoTop 8043 RL-LLM-synth-notop p1 single
+
+# SFT LLM synth-notop full, GPU 1, port 8044
+CUDA_VISIBLE_DEVICES=1 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-merged-nodspy-full-egogroups-synth-notop-train --served-model-name Qwen/Qwen2.5-7B-Instruct-SFT-Synth-NoTop --api-key SFT-LLM-synth-notop-full --port 8044 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-SFT-Synth-NoTop 8044 SFT-LLM-synth-notop-full p1 full
+
+# RL LLM synth-notop full, GPU 2, port 8045
+CUDA_VISIBLE_DEVICES=2 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-7b-groups-grpo-merged-fourlosses-full-egogroups-synth-notop-train-1ep --served-model-name Qwen/Qwen2.5-7B-Instruct-RL-Synth-NoTop --api-key RL-LLM-synth-notop-full --port 8045 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-7B-Instruct-RL-Synth-NoTop 8045 RL-LLM-synth-notop-full p1 full
+
+# SFT VLM synth-notop single, GPU 3, port 8046
+CUDA_VISIBLE_DEVICES=3 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-vl-7b-groups-merged-nodspy-egogroups-synth-notop-train --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-SFT-Synth-NoTop --api-key SFT-VLM-synth-notop --port 8046 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-SFT-Synth-NoTop 8046 SFT-VLM-synth-notop p1_visual single
+
+# RL VLM synth-notop single, GPU 3, port 8047
+CUDA_VISIBLE_DEVICES=3 vllm serve /data/paola-shared/jmurrugarral/sft_output_synth/qwen2.5-vl-7b-groups-grpo-merged-fourlosses-egogroups-synth-notop-train-1ep --served-model-name Qwen/Qwen2.5-VL-7B-Instruct-RL-Synth-NoTop --api-key RL-VLM-synth-notop --port 8047 --gpu-memory-utilization 0.48
+bash scripts/run_groups.bash Qwen/Qwen2.5-VL-7B-Instruct-RL-Synth-NoTop 8047 RL-VLM-synth-notop p1_visual single
