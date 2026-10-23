@@ -35,6 +35,11 @@ JRDB_VAL_SCENES = ['clark-center-2019-02-28_1', 'gates-ai-lab-2019-02-08_0', 'hu
 # LoRA targets of the VLM scripts' --lm_lora: the language model's linear layers only (PEFT full-matches a string
 # target_modules as a regex). Qwen2.5-VL's vision blocks reuse gate/up/down_proj, so names under 'visual' are excluded.
 LM_LORA_TARGETS = r'^(?!.*\bvisual\b).*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj)$'
+# --lm_merger_lora: the same language-model layers plus the vision-to-text merger's linear layers; the vision encoder
+# blocks (visual.blocks.*) stay frozen. Qwen2.5-VL merger: visual.merger.mlp.{0,2}; Qwen3-VL: visual.merger.linear_fc{1,2}
+# and the deepstack mergers visual.deepstack_merger_list.{0,1,2}.linear_fc{1,2}.
+LM_MERGER_LORA_TARGETS = (r'^(?:(?!.*\bvisual\b).*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj)'
+                          r'|.*\bvisual\.(merger|deepstack_merger_list\.\d+)\.(mlp\.\d+|linear_fc\d+))$')
 
 # --base of the four *_nodspy_merged.py training scripts: {base: {'llm'|'vlm': (HF model id, checkpoint-dir prefix)}}.
 # 'qwen2.5' keeps every existing sft_output/qwen2.5{,-vl}-7b-* name; 'qwen3-4b' writes sft_output/qwen3{,-vl}-4b-*.

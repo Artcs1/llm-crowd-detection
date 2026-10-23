@@ -76,6 +76,12 @@ def parse_args():
              "Checkpoints get an extra '-lmlora' suffix (RL --lm_lora then loads the SFT model with the same suffix)."
     )
     parser.add_argument(
+        '--lm_merger_lora', action='store_true',
+        help="LoRA on the language model's linear layers and on the vision-to-text merger (Qwen3-VL: also the deepstack "
+             "mergers); the vision encoder blocks stay frozen. "
+             "Checkpoints get an extra '-lmmergerlora' suffix (RL --lm_merger_lora loads the SFT model with the same suffix)."
+    )
+    parser.add_argument(
         '--tag', type=str, default='',
         help="Extra suffix appended to the checkpoint names (after '-lmlora'), e.g. '-fixedloader' to keep a rerun apart from older checkpoints of the same config. RL loads the SFT checkpoint with the same --tag.")
     parser.add_argument(
@@ -126,8 +132,12 @@ if args.dataset == 'jrdb' and args.jrdb_val_split:
 if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_val_split:
     dataset_suffix += '-valsplit'
 DATASET_SUFFIX = f'{mode_suffix}{variant_infix}{dataset_suffix}'
+if args.lm_lora and args.lm_merger_lora:
+    raise ValueError("--lm_lora and --lm_merger_lora are exclusive (LM only vs LM + merger)")
 if args.lm_lora:
     DATASET_SUFFIX += '-lmlora'
+if args.lm_merger_lora:
+    DATASET_SUFFIX += '-lmmergerlora'
 DATASET_SUFFIX += args.tag
 
 # Load ground-truth examples and split by scenario. require_image=True so every example has a
@@ -321,7 +331,9 @@ lora_config = LoraConfig(
     bias='none',
     # --lm_lora: a regex (PEFT full-matches it against module names) picking the language model's linear layers;
     # the vision tower's MLP reuses the gate/up/down_proj names, so anything under 'visual' is excluded by name
-    target_modules=sft_data_utils.LM_LORA_TARGETS if args.lm_lora else 'all-linear',
+    # --lm_merger_lora: the same regex plus the merger's linear layers (sft_data_utils.LM_MERGER_LORA_TARGETS)
+    target_modules=(sft_data_utils.LM_LORA_TARGETS if args.lm_lora
+                    else sft_data_utils.LM_MERGER_LORA_TARGETS if args.lm_merger_lora else 'all-linear'),
     task_type='CAUSAL_LM',
 )
 

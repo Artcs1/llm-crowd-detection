@@ -127,6 +127,12 @@ def parse_args():
              "and the RL checkpoints carry the same suffix."
     )
     parser.add_argument(
+        '--lm_merger_lora', action='store_true',
+        help="LoRA on the language model's linear layers and on the vision-to-text merger (Qwen3-VL: also the deepstack "
+             "mergers); the vision encoder blocks stay frozen. "
+             "Starts from the SFT checkpoint trained with sft_training_vlm_nodspy_merged.py --lm_merger_lora (its '-lmmergerlora' suffix), and the RL checkpoints carry the same suffix."
+    )
+    parser.add_argument(
         '--tag', type=str, default='',
         help="Extra suffix appended to the checkpoint names (after '-lmlora'), e.g. '-fixedloader' to keep a rerun apart from older checkpoints of the same config. RL loads the SFT checkpoint with the same --tag.")
     parser.add_argument(
@@ -205,8 +211,12 @@ if args.dataset == 'jrdb' and args.jrdb_val_split:
 if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_val_split:
     dataset_suffix += '-valsplit'
 DATASET_SUFFIX = f'{mode_suffix}{variant_infix}{dataset_suffix}'
+if args.lm_lora and args.lm_merger_lora:
+    raise ValueError("--lm_lora and --lm_merger_lora are exclusive (LM only vs LM + merger)")
 if args.lm_lora:
     DATASET_SUFFIX += '-lmlora'
+if args.lm_merger_lora:
+    DATASET_SUFFIX += '-lmmergerlora'
 DATASET_SUFFIX += args.tag
 
 # Only touches saved-checkpoint dirs below (adapter_dir/merged_dir/output_dir), not MODEL_NAME --
@@ -530,7 +540,8 @@ lora_config = LoraConfig(
     lora_alpha=64,
     lora_dropout=0.05,
     bias='none',
-    target_modules=sft_data_utils.LM_LORA_TARGETS if args.lm_lora else 'all-linear',  # see the SFT script
+    target_modules=(sft_data_utils.LM_LORA_TARGETS if args.lm_lora  # see the SFT script
+                    else sft_data_utils.LM_MERGER_LORA_TARGETS if args.lm_merger_lora else 'all-linear'),
     task_type='CAUSAL_LM',
 )
 
