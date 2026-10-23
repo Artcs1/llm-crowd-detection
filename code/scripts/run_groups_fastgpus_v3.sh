@@ -7,6 +7,7 @@
 # interleaved 1/16 of the keyframes not yet saved (--skip_existing --num_parts 16 --part_id k), so a stopped run resumes.
 # Waits first until the merged checkpoint is complete (index + every listed shard readable, size stable for a minute).
 # Copy of run_groups_fastgpus_v2.sh with $PER (clients per server, default 4) settable, e.g. PER=16 for one GPU.
+# MAXLEN caps vLLM's max_model_len (e.g. MAXLEN=32768 for Qwen3-VL, whose 262K default needs ~36 GiB of KV cache).
 # Usage: [PER=16 DATASET=ego|ego_jrdbstyle|jrdb|jrdb_egostyle GPUS="4 5 6 7" UTILS="0.45 0.45 0.45 0.3" PORT0=8095] bash scripts/run_groups_fastgpus_v3.sh <checkpoint> <served name> <prompt: p1|p1_visual> <type: single|full> <log dir>
 umask 000
 source ~/anaconda3/etc/profile.d/conda.sh
@@ -49,7 +50,7 @@ for i in "${!GPUS[@]}"; do
   port=$((PORT0 + i))
   echo "[$(date)] GPU ${GPUS[$i]}: starting server $port"
   CUDA_VISIBLE_DEVICES=${GPUS[$i]} vllm serve "$CKPT" --served-model-name "$NAME" --api-key jrdb --port $port \
-    --gpu-memory-utilization ${UTILS[$i]} > "$LOGS/server_$port.log" 2>&1 &
+    --gpu-memory-utilization ${UTILS[$i]} ${MAXLEN:+--max-model-len $MAXLEN} > "$LOGS/server_$port.log" 2>&1 &
   pids+=($!)
 done
 for i in "${!GPUS[@]}"; do

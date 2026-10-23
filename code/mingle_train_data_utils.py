@@ -32,10 +32,17 @@ VIDEOS_FRAMES_DIR = os.path.join(EGOTRAIN_DIR, 'videos_frames')
 DEPTH_DIR = os.path.join(DATA_ROOT, 'EVP', 'depth', 'gold_egogroups_train')
 GT_PKL_PATH = os.path.join(CODE_DIR, 'F1_evaluator', 'out', 'gt_group_10fps_train.pkl')
 BASE_CLIP_OFFSET = 901
-# Validation set shared with every other EgoGroups method (DVT scene_split.py, PAR, GroupTrans, RTGD/SHGD/ECCV20):
-# EgoGroups_train clips are ordered by density (0901-1200 scattered, 1201-1800 moderate, 1801-2700 crowded), and the
-# last 60 clips of each density (1141-1200, 1741-1800, 2641-2700) are held out -- 180 clips, 1:1:1 like EgoGroups_test.
-VAL_CLIPS = [*range(1141, 1201), *range(1741, 1801), *range(2641, 2701)]
+# Validation set shared with every other EgoGroups method (DVT scene_split.py, PAR, GroupTrans, RTGD/SHGD/ECCV20),
+# chosen by the EGO_VAL_SPLIT env var: "geo180" (default) = 6 clips per (region, density) for the 10 regions of
+# EgoGroups_train (egogroups_val_geo180.txt); "density180" = the earlier last 60 clips of each density (1141-1200,
+# 1741-1800, 2641-2700; EgoGroups_train is ordered by density, then region, so it was almost all Nordic Europe).
+EGO_VAL_SPLIT = os.environ.get('EGO_VAL_SPLIT', 'geo180')
+if EGO_VAL_SPLIT == 'geo180':
+    VAL_CLIPS = [int(l) for l in open(os.path.join(CODE_DIR, 'egogroups_val_geo180.txt')) if l.strip()]
+elif EGO_VAL_SPLIT == 'density180':
+    VAL_CLIPS = [*range(1141, 1201), *range(1741, 1801), *range(2641, 2701)]
+else:
+    raise ValueError(f'EGO_VAL_SPLIT must be geo180 or density180, not {EGO_VAL_SPLIT!r}')
 VAL_SCENARIOS = {c - BASE_CLIP_OFFSET for c in VAL_CLIPS}  # scenario_idx convention (same as egogroups_train_data_utils.py)
 TARGET_FRAME = 10
 

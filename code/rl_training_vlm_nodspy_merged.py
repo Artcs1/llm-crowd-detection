@@ -127,6 +127,9 @@ def parse_args():
              "and the RL checkpoints carry the same suffix."
     )
     parser.add_argument(
+        '--tag', type=str, default='',
+        help="Extra suffix appended to the checkpoint names (after '-lmlora'), e.g. '-fixedloader' to keep a rerun apart from older checkpoints of the same config. RL loads the SFT checkpoint with the same --tag.")
+    parser.add_argument(
         '--base', type=str, choices=['qwen2.5', 'qwen3-4b'], default='qwen2.5',
         help="Base model (sft_data_utils.BASE_MODELS): 'qwen2.5' = Qwen/Qwen2.5-VL-7B-Instruct (default; the checkpoints of the paper "
              "tables), 'qwen3-4b' = Qwen/Qwen3-VL-4B-Instruct. Checkpoint dirs start with the base's prefix (qwen2.5-vl-7b-* / qwen3-vl-4b-*), and RL loads the SFT checkpoint of the same base."
@@ -204,6 +207,7 @@ if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_va
 DATASET_SUFFIX = f'{mode_suffix}{variant_infix}{dataset_suffix}'
 if args.lm_lora:
     DATASET_SUFFIX += '-lmlora'
+DATASET_SUFFIX += args.tag
 
 # Only touches saved-checkpoint dirs below (adapter_dir/merged_dir/output_dir), not MODEL_NAME --
 # the starting SFT checkpoint doesn't depend on how many GRPO epochs this run will do. Mirrors

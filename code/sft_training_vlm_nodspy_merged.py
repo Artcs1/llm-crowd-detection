@@ -76,6 +76,9 @@ def parse_args():
              "Checkpoints get an extra '-lmlora' suffix (RL --lm_lora then loads the SFT model with the same suffix)."
     )
     parser.add_argument(
+        '--tag', type=str, default='',
+        help="Extra suffix appended to the checkpoint names (after '-lmlora'), e.g. '-fixedloader' to keep a rerun apart from older checkpoints of the same config. RL loads the SFT checkpoint with the same --tag.")
+    parser.add_argument(
         '--base', type=str, choices=['qwen2.5', 'qwen3-4b'], default='qwen2.5',
         help="Base model (sft_data_utils.BASE_MODELS): 'qwen2.5' = Qwen/Qwen2.5-VL-7B-Instruct (default; the checkpoints of the paper "
              "tables), 'qwen3-4b' = Qwen/Qwen3-VL-4B-Instruct. Checkpoint dirs start with the base's prefix (qwen2.5-vl-7b-* / qwen3-vl-4b-*)."
@@ -125,6 +128,7 @@ if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_va
 DATASET_SUFFIX = f'{mode_suffix}{variant_infix}{dataset_suffix}'
 if args.lm_lora:
     DATASET_SUFFIX += '-lmlora'
+DATASET_SUFFIX += args.tag
 
 # Load ground-truth examples and split by scenario. require_image=True so every example has a
 # matching frame image on disk. Split by scenario_idx (not by individual example) so frames from

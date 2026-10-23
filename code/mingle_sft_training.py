@@ -132,7 +132,9 @@ MODEL_NAME, MODEL_CLASS, CKPT_PREFIX = BASE_MODELS[args.base_model]
 # other (e.g. a --neg_per_pos 2 run can't clobber the 1:1 checkpoints).
 RUN_SUFFIX = ((f'-neg{args.neg_per_pos:g}' if args.neg_per_pos != 1 else '')
               + (f'-lr{args.learning_rate:g}' if args.learning_rate != 1e-4 else '')
-              + (f'-seed{args.seed}' if args.seed != 42 else ''))
+              + (f'-seed{args.seed}' if args.seed != 42 else '')
+              # EgoGroups val split of mingle_train_data_utils.py: default geo180 runs get their own checkpoint names
+              + ('-geo180' if args.dataset != 'jrdb' and os.environ.get('EGO_VAL_SPLIT', 'geo180') == 'geo180' else ''))
 
 # Under `accelerate launch`/`torchrun`, every process sees all GPUs and must place its model (and,
 # below, initialize its NCCL process-group membership) on its OWN GPU via LOCAL_RANK -- done this

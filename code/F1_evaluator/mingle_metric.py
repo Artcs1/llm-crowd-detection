@@ -30,6 +30,11 @@ ap.add_argument("--gt_frames_only", action="store_true",
                 help="with --per_image: skip keyframes without GT groups (false-positive groups there are ignored)")
 ap.add_argument("--density", choices=["scattered", "moderate", "crowded"],
                 help="only clips of this density (the 'density' field of each clip JSON, as in AP_evaluator/JRDB_eval.py)")
+REGIONS = {"AF": "African", "AN": "Anglo", "CA": "Confucian Asia", "EU": "Eastern Europe", "GE": "Germanic Europe",
+           "LA": "Latin America", "LE": "Latin Europe", "ME": "Middle East", "NE": "Nordic Europe",
+           "SA": "South-East Asia", "O": "Other"}  # region modes of AP_evaluator/JRDB_eval.py
+ap.add_argument("--region", choices=sorted(REGIONS),
+                help="only clips of this region (the 'globe_region' field of each clip JSON, as in AP_evaluator/JRDB_eval.py)")
 ap.add_argument("--clips", default="/data/paola-shared/jmurrugarral/EgoGroups_test/jsons_step1")
 args = ap.parse_args()
 
@@ -37,6 +42,9 @@ gt = pickle.load(open(args.gt, "rb"))
 if args.density:
     gt = {c: v for c, v in gt.items()
           if json.load(open(glob.glob(os.path.join(args.clips, "clip_%04d_*.json" % (c + 1)))[0]))["density"] == args.density}
+if args.region:
+    gt = {c: v for c, v in gt.items()
+          if json.load(open(glob.glob(os.path.join(args.clips, "clip_%04d_*.json" % (c + 1)))[0]))["globe_region"] == REGIONS[args.region]}
 tracking = json.load(open(os.path.expanduser("~/tracking_annotations.json")))
 BOX = {}  # (clip_idx, keyframe) -> {person_id: box}
 for c in gt:
