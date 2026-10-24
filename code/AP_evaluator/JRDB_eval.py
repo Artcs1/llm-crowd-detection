@@ -400,7 +400,11 @@ def evaluate(labelmap, groundtruth, detections, task, mode):
   # ../results/detection_files/{dataset}_{frame_id}/..., so the dataset name is already a
   # substring of it at runtime -- no signature/call-site changes needed to detect which dataset
   # this run is for.
-  if "EgoGroups_test" in detections:
+  if any(k in getattr(detections, "name", detections) for k in ("EgoGroupsCity", "EgoGroups_city")):  # (open file: its path)
+    # egogroups-city (clips 1-2700, seq = clip - 1): every clip's jsons_step1 copy, with density and globe_region
+    source_dataset = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "annotations")
+    clip_glob_pattern = "clip_{:04d}.json"
+  elif "EgoGroups_test" in detections:
     source_dataset = "/lp-dev/jmurrugarral/EgoGroups_test/"
     clip_glob_pattern = "clip_{:04d}_*.json"  # any sub-clip -- density is identical across all 5
   else:

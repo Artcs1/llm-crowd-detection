@@ -24,14 +24,17 @@ def parse_args():
         '--dataset', type=str,
         choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
                  'egogroups-synth-train', 'egogroups-synth-train-subset',
-                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset'],
+                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'egogroups-city'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py + the jrdb-trained SFT checkpoint; 'egogroups' uses "
              "egogroups_data_utils.py + the egogroups-trained SFT checkpoint; 'egogroups-train' "
              "uses egogroups_train_data_utils.py + the egogroups-train-trained SFT checkpoint; "
              "the '-subset' variants are the same source further filtered to drop all-singleton "
              "examples (zero real/non-singleton groups), starting from the matching -subset SFT "
-             "checkpoint (see sft_training_vlm_nodspy_merged.py --dataset)."
+             "checkpoint (see sft_training_vlm_nodspy_merged.py --dataset). 'jrdbego': JRDB train + EgoGroups_train "
+             "(geo180 val clips held out) from the '-jrdbego-geo180' SFT checkpoint. 'egogroups-city': the 1620 "
+             "egogroups-city train clips (egogroups_city.py, val = its 180 val clips) from the '-egogroups-city' SFT "
+             "checkpoint."
     )
     parser.add_argument(
         '--variant', type=str, choices=['p1_visual', 'idsonly'], default='p1_visual',
@@ -185,6 +188,7 @@ from sklearn.metrics.cluster import pair_confusion_matrix
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration, Qwen3VLForConditionalGeneration, TrainerCallback
 from trl import GRPOConfig, GRPOTrainer
 
+import egogroups_city_data_utils
 import egogroups_data_utils
 import egogroups_synth_train_data_utils
 import egogroups_train_data_utils
@@ -210,6 +214,8 @@ if args.dataset == 'jrdb' and args.jrdb_val_split:
     dataset_suffix = '-jrdbtrain'
 if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_val_split:
     dataset_suffix += '-valsplit'
+if args.dataset == 'jrdbego':
+    dataset_suffix = '-jrdbego-geo180'
 DATASET_SUFFIX = f'{mode_suffix}{variant_infix}{dataset_suffix}'
 if args.lm_lora and args.lm_merger_lora:
     raise ValueError("--lm_lora and --lm_merger_lora are exclusive (LM only vs LM + merger)")
@@ -240,6 +246,18 @@ if args.init_model:  # extra epochs count up from the init's own -plusNep, so a 
 if args.dataset == 'jrdb':
     build_examples = sft_data_utils.build_sft_examples if args.mode == 'single' else sft_data_utils.build_sft_examples_full
     examples = build_examples(require_image=True)
+elif args.dataset == 'jrdbego':  # same joint set as sft_training_vlm_nodspy_merged.py --dataset jrdbego
+    jrdb_build = sft_data_utils.build_sft_examples if args.mode == 'single' else sft_data_utils.build_sft_examples_full
+    ego_build = (egogroups_train_data_utils.build_sft_examples if args.mode == 'single'
+                 else egogroups_train_data_utils.build_sft_examples_full)
+    JOINT_EGO_OFFSET = 10000  # EgoGroups scenario ids shifted past JRDB's
+    examples = [dict(e, source='jrdb') for e in jrdb_build(require_image=True)]
+    examples += [dict(e, source='ego', scenario_idx=e['scenario_idx'] + JOINT_EGO_OFFSET)
+                 for e in ego_build(require_image=True, exclude_all_singleton=False)]
+elif args.dataset == 'egogroups-city':  # same set as sft_training_vlm_nodspy_merged.py --dataset egogroups-city
+    build_examples = (egogroups_city_data_utils.build_sft_examples if args.mode == 'single'
+                      else egogroups_city_data_utils.build_sft_examples_full)
+    examples = build_examples(splits=('train', 'val'), require_image=True, exclude_all_singleton=False)
 elif args.dataset in ('egogroups', 'egogroups-subset'):
     build_examples = egogroups_data_utils.build_sft_examples if args.mode == 'single' else egogroups_data_utils.build_sft_examples_full
     examples = build_examples(
@@ -277,9 +295,22 @@ if args.dataset == 'jrdb' and args.jrdb_val_split:
     train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
     val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
 
+if args.dataset == 'jrdbego':
+    # JRDB: the 7 val scenes of the baselines; EgoGroups: the geo180 val clips of the baselines (never trained on)
+    val_scenarios = ({e['scenario_idx'] for e in examples if e['source'] == 'jrdb' and e['sequence_name'] in sft_data_utils.JRDB_VAL_SCENES}
+                     | {s + JOINT_EGO_OFFSET for s in egogroups_train_data_utils.VAL_SCENARIOS_GEO180})
+    train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
+    val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+
+if args.dataset == 'egogroups-city':  # the city val clips (never trained on)
+    val_scenarios = {e['scenario_idx'] for e in examples if e['city_split'] == 'val'}
+    train_examples = [e for e in examples if e['city_split'] == 'train']
+    val_examples = [e for e in examples if e['city_split'] == 'val']
+
 if args.rl_on_val:
-    assert args.dataset == 'jrdb' and args.jrdb_val_split, '--rl_on_val needs --dataset jrdb --jrdb_val_split'
-    train_examples = list(val_examples)  # GRPO on the 7 val scenes the SFT never saw
+    assert (args.dataset == 'jrdb' and args.jrdb_val_split) or args.dataset in ('jrdbego', 'egogroups-city'), \
+        '--rl_on_val needs --dataset jrdb --jrdb_val_split, jrdbego or egogroups-city'
+    train_examples = list(val_examples)  # GRPO on the validation scenes / clips the SFT never saw
 
 print(f'train: {len(train_examples)} examples, val: {len(val_examples)} examples')
 print(f'held-out scenarios: {sorted(val_scenarios)}')

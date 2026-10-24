@@ -94,8 +94,11 @@ outside the repo and are referenced by absolute paths (`/lp-dev/jmurrugarral/{go
      If a loader suddenly returns only a few examples, check the GT pkls haven't regressed to tiny placeholder
      stubs and that detection track_ids still align with GT (see `fix_egogroups_track_ids.py`) before debugging
      the matching logic.
+     `egogroups_city_data_utils.py` (`--dataset egogroups-city`; see "EgoGroups splits" below) runs the
+     `egogroups_train_data_utils.py` builders over both EgoGroups folders and keeps the city train/val clips.
    - `mingle_sft_training.py` + `mingle_train_data_utils.py` — separate MINGLE-style pairwise ("are these two
      grouped?" → `Yes`/`No`) VLM SFT on EgoGroups_train with RGB+depth crops; multi-GPU via `accelerate launch`.
+     `--dataset egogroups-city` uses `mingle_city_data_utils.py`.
    - `debug_grpo_inference.py` / `debug_vlm_generate.py` — load a merged checkpoint with plain `transformers` and
      print raw generations, to tell bad completions apart from parsing bugs.
    - Test a checkpoint: `vllm serve sft_output/<merged_dir> --served-model-name X --api-key testkey --port 8000`,
@@ -153,3 +156,39 @@ One-off data-prep scripts (already run; not part of the normal pipeline): `fix_e
   including inside vLLM/GRPOTrainer. Fix it by upgrading `transformers` or bumping that field in the checkpoint's
   `config.json`. Don't work around it with `use_fast=False`, because that breaks `assistant_only_loss` masking in
   the SFT scripts.
+
+## EgoGroups splits
+
+Clips are numbered 1-2700: `EgoGroups_test` holds 1-900, `EgoGroups_train` holds 901-2700 (5 ten-frame sub-clips
+each, `clip_XXXX_YYYYY`). Per-clip city / country / `globe_region` / `density` are in `annotations/jsons_step1/clip_XXXX.json`.
+Three train/val/test definitions exist; the env var `EGO_VAL_SPLIT` picks one in the baselines' loaders:
+
+- `geo180` (default): train = EgoGroups_train minus the 180 val clips of `egogroups_val_geo180.txt` (6 per region x
+  density), test = EgoGroups_test (1-900).
+- `density180` (older runs): val = the last 60 clips of each density (1141-1200, 1741-1800, 2641-2700).
+- `city` ("egogroups-city"): user-provided division of ALL 2700 clips, `egogroups_city_{train,val,test}.txt`
+  (1620 / 180 / 900; `egogroups_city.py` loads them as `CITY`). No city and no source video is shared between
+  splits; density is 22/33/44% in each split. Every split mixes clips of both original folders, so test != EgoGroups_test.
+  - Folders `<root>/EgoGroupsCity_Train` (train + val, 1800 clips) and `<root>/EgoGroupsCity_Test` (900 clips), same
+    layout as the originals (`jsons_step1..6`, `videos_frames`), built by `scripts/make_egogroupscity_folders.py`
+    as relative links (how to rebuild them from EgoGroups_train / EgoGroups_test elsewhere: `README_egogroups_city.md`). Depth: `<root>/EVP/depth/gold_egogroupscity_{train,test}`, links into
+    `gold_egogroups_{test,train}`. Clip names keep their ORIGINAL numbers, so each folder's clip ids are
+    non-contiguous (EgoGroupsCity_Test: 312 clips from 1-900 + 588 from 901-2700; EgoGroupsCity_Train: 588 + 1212).
+    Clips 901-2700 have no `jsons_step6`: their `jsons_step6` entries link to `jsons_step4` (same boxes, track ids,
+    `detany_3D`); `jsons_step5` exists only for part of those clips.
+  - GT with one numbering, `seq = clip_number - 1` for all clips (`python egogroups_city.py gt`):
+    `AP_evaluator/out/gt_group_10fps_city_{train,val,test}.txt`, `F1_evaluator/out/gt_group_10fps_city_{train,val,test}.pkl`.
+    15 clips of 1-900 have nobody at any keyframe, so they have no txt rows (as in `gt_group_10fps_test.txt`).
+    Never mix seq numberings: `gt_group_10fps_test.*` uses `clip - 1`, `gt_group_10fps_train.*` uses `clip - 901`
+    (and some of its box values are floats such as `709.0`).
+  - Testing ANY checkpoint on it: `EGO_DATA=EgoGroupsCity_Test bash scripts/run_groups.bash ...`, then
+    `compute_detections.py` / `compute_groupings.py --dataset EgoGroupsCity_Test` (outputs under
+    `results/{detection,grouping}_files/EgoGroupsCity_Test_10`). `JRDB_eval.py` reads density / region from
+    `annotations/jsons_step1` when the detection path contains `EgoGroupsCity`, so `--output <density|REGION|REGION_density>`
+    works. The baselines' testers take `--split city_test` (RTGD, Social-CAD, S3R2, P-HAR), `runs/EgoGroupsCity_Test`
+    (GroupTrans), `test_egogroupscity.sh` (DVT3), `run_mingle.py --dataset egogroupscity_test` (MINGLE).
+  - Training: `--dataset egogroups-city` (SFT / RL VLM scripts, MINGLE; checkpoints `-egogroups-city`), `EGO_VAL_SPLIT=city`
+    (baselines). Full commands: `<root>/TRAINING_TESTING_SPECS.txt` section 9.
+- Known issue (not fixed): `JRDB_eval.py`'s `"EgoGroups_test" in detections` tests the lines of the open detection file,
+  not its path, so it is never true and per-region / per-density AP for EgoGroups_test reads clip metadata from
+  `/lp-dev/jmurrugarral/gold_SEKAI_900_3/`.

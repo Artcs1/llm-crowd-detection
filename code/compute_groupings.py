@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select mode, prompt method, model, and VLM mode")
-    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","EgoGroups_test","EgoGroups_test_jrdbstyle","gold_SEKAI_900_3"], required=True, help="Dataset options")
+    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_fixed","EgoGroups_test","EgoGroups_test_jrdbstyle","EgoGroupsCity_Test","gold_SEKAI_900_3"], required=True, help="Dataset options")
     parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
     parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D","wilddet_3D"], default="naive_3D_60FOV", help="Depth method")
     parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p1_bbox","p2","p3","p4","p5","naive_cluster"], required=True, help="Prompt method")
@@ -28,7 +28,7 @@ if __name__ == '__main__':
         H, W = 480, 3760
     elif args.dataset == 'JRDB_fixed_gold':
         H, W = 480, 3760
-    elif args.dataset in ('EgoGroups_test', 'EgoGroups_test_jrdbstyle'):
+    elif args.dataset in ('EgoGroups_test', 'EgoGroups_test_jrdbstyle', 'EgoGroupsCity_Test'):
         H, W = 1080, 1920
     elif args.dataset == 'gold_SEKAI_900_3':
         H, W = 1080, 1920
@@ -93,6 +93,12 @@ if __name__ == '__main__':
             scenarios.add(orig_scenario)
             #print(scenarios)
             dc, idx, int_img, lvl, group_id = 1, len(scenarios)-1, (number+1)*10, 1, 1
+        elif args.dataset == 'EgoGroupsCity_Test':
+            # egogroups-city test (clips of both EgoGroups folders): seq = clip - 1, as in gt_group_10fps_city_test.pkl
+            split_scenario = scenario.split('_')
+            number = int(split_scenario[-1])
+            scenarios.add("".join(split_scenario[:-1]))
+            dc, idx, int_img, lvl, group_id = 1, int(split_scenario[1]) - 1, (number+1)*10, 1, 1
         else:
             #print('jrdb')
             split_scenario = scenario.split('_')

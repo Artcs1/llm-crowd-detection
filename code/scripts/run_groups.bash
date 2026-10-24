@@ -30,6 +30,9 @@ API_BASE="http://localhost:${PORT}/v1"
 # Default when EGO_DATA is unset: a JRDB-trained model ("JRDBTrain" in the served name) is a cross-dataset check, so it
 # gets the 3D convention it was trained with (EgoGroups_test_jrdbstyle); every other model gets EgoGroups_test.
 # Set EGO_DATA=EgoGroups_test explicitly to test a JRDB-trained model on the native EgoGroups 3D.
+# EGO_DATA=EgoGroupsCity_Test: the egogroups-city test clips (scripts/make_egogroupscity_folders.py), any model; then
+# compute_detections.py / compute_groupings.py --dataset EgoGroupsCity_Test and score against
+# AP_evaluator/out/gt_group_10fps_city_test.txt / F1_evaluator/out/gt_group_10fps_city_test.pkl.
 if [ -z "$EGO_DATA" ] && [[ "$MODEL_NAME" == *"JRDBTrain"* ]]; then
   EGO_DATA=EgoGroups_test_jrdbstyle
 fi

@@ -37,17 +37,27 @@ def parse_args():
                              "fine-tuned from (HF model card + config.json: Qwen2VLForConditionalGeneration); "
                              "'qwen2.5-vl' is the other base the paper compares. Also sets the checkpoint "
                              "name prefix (qwen2-vl-7b-... / qwen2.5-vl-7b-...).")
-    parser.add_argument('--dataset', type=str, choices=['egogroups', 'jrdb'], default='egogroups',
+    parser.add_argument('--dataset', type=str, choices=['egogroups', 'jrdb', 'jrdbego', 'egogroups-city'], default='egogroups',
                         help="egogroups (default): EgoGroups_train pairs (mingle_train_data_utils.py), validation from the "
                              "180 held-out EgoGroups clips. jrdb: JRDB train pairs (mingle_jrdb_train_data_utils.py), "
                              "training on the 20 JRDB train scenes, validation from the 7 JRDB val scenes; checkpoints "
-                             "are named ...-jrdb-train... instead of ...-egogroups-train...")
+                             "are named ...-jrdb-train... instead of ...-egogroups-train... jrdbego: both training sets "
+                             "(plain union of the two pair sets, each built and cached as for its own dataset); --val_pairs "
+                             "is split in half between the JRDB val scenes and the EgoGroups val clips, so the validation "
+                             "loss weighs the two equally; checkpoints ...-jrdbego-train...-geo180... egogroups-city: the "
+                             "egogroups-city split (egogroups_city.py; clips of both EgoGroups folders, no city shared "
+                             "between splits), train pairs of its 1620 train clips, validation from its 180 val clips; "
+                             "checkpoints ...-egogroups-city-train...")
     parser.add_argument('--neg_per_pos', type=float, default=1,
                         help='sampled negative pairs per positive pair per frame (see '
                              'mingle_train_data_utils.build_pairwise_examples); fractions allowed, e.g. 1.5 = '
                              "the paper's Table 1 training split (28,341 Yes / 43,654 No). Default 1 = balanced "
                              'Yes/No, matching the released MINGLE-1.0 ("61k annotated image pairs '
                              '(Balanced, Y/N only)").')
+    parser.add_argument('--neg_per_pos_jrdb', type=float, default=None,
+                        help="--dataset jrdbego only: negatives per positive for the JRDB pairs (default: --neg_per_pos); "
+                             "e.g. 1.92 = the ratio of the JRDB-only runs (scripts/run_mingle_jrdb.sh). Adds -jrdbneg<value> "
+                             "to the checkpoint names.")
     parser.add_argument('--val_pairs', type=int, default=0,
                         help="0 (default): no validation; the final checkpoint is the last epoch, and every "
                              "epoch's merged checkpoint is saved. N > 0: validate on N pairs, half Yes and half No (balanced whatever --neg_per_pos is), taken round-robin over the "
@@ -133,8 +143,10 @@ MODEL_NAME, MODEL_CLASS, CKPT_PREFIX = BASE_MODELS[args.base_model]
 RUN_SUFFIX = ((f'-neg{args.neg_per_pos:g}' if args.neg_per_pos != 1 else '')
               + (f'-lr{args.learning_rate:g}' if args.learning_rate != 1e-4 else '')
               + (f'-seed{args.seed}' if args.seed != 42 else '')
+              + (f'-jrdbneg{args.neg_per_pos_jrdb:g}' if args.neg_per_pos_jrdb is not None else '')
               # EgoGroups val split of mingle_train_data_utils.py: default geo180 runs get their own checkpoint names
-              + ('-geo180' if args.dataset != 'jrdb' and os.environ.get('EGO_VAL_SPLIT', 'geo180') == 'geo180' else ''))
+              + ('-geo180' if args.dataset in ('egogroups', 'jrdbego') and os.environ.get('EGO_VAL_SPLIT', 'geo180') == 'geo180'
+                 else ''))
 
 # Under `accelerate launch`/`torchrun`, every process sees all GPUs and must place its model (and,
 # below, initialize its NCCL process-group membership) on its OWN GPU via LOCAL_RANK -- done this
@@ -145,11 +157,25 @@ if _distributed:
     torch.cuda.set_device(int(os.environ['LOCAL_RANK']))
 from trl import SFTConfig, SFTTrainer
 
-if args.dataset == 'jrdb':
-    import mingle_jrdb_train_data_utils as data_utils
-else:
-    import mingle_train_data_utils as data_utils
-TRAIN_TAG = 'jrdb-train' if args.dataset == 'jrdb' else 'egogroups-train'  # checkpoint-name part
+import mingle_city_data_utils
+import mingle_jrdb_train_data_utils
+import mingle_train_data_utils
+
+# Pair sources: one per dataset, each with its own builder, crop cache and records cache (jrdbego uses both, unchanged)
+# (egogroups-city: city train + val clips of both EgoGroups folders, mingle_city_data_utils.py; crops are shared with
+# 'egogroups', whose cache is keyed by the unique clip names)
+SOURCE_UTILS = {'jrdb': mingle_jrdb_train_data_utils, 'egogroups': mingle_train_data_utils,
+                'egogroups-city': mingle_city_data_utils}
+SOURCES = ['jrdb', 'egogroups'] if args.dataset == 'jrdbego' else [args.dataset]
+data_utils = SOURCE_UTILS[SOURCES[0]]  # DATA_ROOT is the same for both
+if args.neg_per_pos_jrdb is not None and args.dataset != 'jrdbego':
+    raise ValueError('--neg_per_pos_jrdb is for --dataset jrdbego (use --neg_per_pos for a single dataset)')
+
+
+def neg_per_pos(source):
+    return args.neg_per_pos_jrdb if source == 'jrdb' and args.neg_per_pos_jrdb is not None else args.neg_per_pos
+TRAIN_TAG = {'jrdb': 'jrdb-train', 'egogroups': 'egogroups-train', 'jrdbego': 'jrdbego-train',
+             'egogroups-city': 'egogroups-city-train'}[args.dataset]  # checkpoint-name part
 
 # MINGLE's scripts/utils/ is a namespace package (no __init__.py) named "utils" -- same name as this
 # repo's own utils.py (a real module). A plain sys.path trick can't make the namespace package win:
@@ -175,10 +201,11 @@ SidewalkBalletImage = _image_processing.SidewalkBalletImage
 prompt7 = _prompts.prompt7
 compute_median_depth = _tools.compute_median_depth
 
-CROP_CACHE_DIR = 'sft_output/mingle_pair_crops_cache' + ('_jrdb' if args.dataset == 'jrdb' else '')
+def crop_cache_dir(source):
+    return 'sft_output/mingle_pair_crops_cache' + ('_jrdb' if source == 'jrdb' else '')
 
 
-def get_pair_crops_and_text(example):
+def get_pair_crops_and_text(example, source):
     """Returns (rgb_crop_path, depth_crop_path, prompt_text). The two crop images are drawn+saved
     once and cached on disk (keyed by clip_name/tid1_tid2), same rationale as
     sft_training_vlm_nodspy_merged.py's ANNOTATED_CACHE_DIR. depth values / relative boxes are cheap
@@ -194,7 +221,7 @@ def get_pair_crops_and_text(example):
     depth1, depth2 = compute_median_depth(image_depth, [box1, box2])
     text = prompt7(img_focused.boxes, depth1, depth2)
 
-    cache_dir = os.path.join(CROP_CACHE_DIR, example['clip_name'])
+    cache_dir = os.path.join(crop_cache_dir(source), example['clip_name'])
     rgb_path = os.path.join(cache_dir, f"{example['tid1']}_{example['tid2']}_rgb.jpg")
     depth_path = os.path.join(cache_dir, f"{example['tid1']}_{example['tid2']}_depth.jpg")
     if not os.path.exists(rgb_path) or not os.path.exists(depth_path):
@@ -205,8 +232,8 @@ def get_pair_crops_and_text(example):
     return rgb_path, depth_path, text
 
 
-def build_record(example):
-    rgb_path, depth_path, text = get_pair_crops_and_text(example)
+def build_record(example, source):
+    rgb_path, depth_path, text = get_pair_crops_and_text(example, source)
     return {
         'images': [rgb_path, depth_path],
         'prompt': [{'role': 'user', 'content': text}],
@@ -214,32 +241,34 @@ def build_record(example):
     }
 
 
-def build_records():
+def build_records(source):
     """Builds the SFT record for every pair, before any train/val split. Slow (reads all 9000 jsons_step4
     files and opens every pair's full RGB + depth frame to crop it / compute median depth), so the result
     is cached to RECORDS_CACHE below and only rebuilt when that file is missing."""
     print('building pairwise examples...')
-    examples = data_utils.build_pairwise_examples(neg_per_pos=args.neg_per_pos, limit=args.limit)
+    examples = SOURCE_UTILS[source].build_pairwise_examples(neg_per_pos=neg_per_pos(source), limit=args.limit)
     n_yes = sum(e['label'] == 'Yes' for e in examples)
     print(f'{len(examples)} pairwise examples ({n_yes} Yes / {len(examples) - n_yes} No) across '
           f'{len({e["scenario_idx"] for e in examples})} scenarios')
-    return {'examples': examples, 'records': [build_record(e) for e in examples]}
+    return {'examples': examples, 'records': [build_record(e, source) for e in examples]}
 
 
 # Records depend on neither --base_model nor --val_pairs (the split happens after loading), so one cache
 # serves every model and every split.
-RECORDS_CACHE = (f'sft_output/mingle_records_cache/{"jrdb_" if args.dataset == "jrdb" else ""}'
-                 f'neg{args.neg_per_pos:g}_limit{args.limit}.json')
+def records_cache(source):
+    return (f'sft_output/mingle_records_cache/{ {"jrdb": "jrdb_", "egogroups-city": "city_"}.get(source, "")}'
+            f'neg{neg_per_pos(source):g}_limit{args.limit}.json')
 
 
-def write_records_cache():
-    data = build_records()
-    os.makedirs(os.path.dirname(RECORDS_CACHE), exist_ok=True)
-    tmp = RECORDS_CACHE + '.tmp'
+def write_records_cache(source):
+    data = build_records(source)
+    path = records_cache(source)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + '.tmp'
     with open(tmp, 'w') as f:
         json.dump(data, f)
-    os.replace(tmp, RECORDS_CACHE)  # atomic: an interrupted build never leaves a half-written cache
-    print(f'records cached to {RECORDS_CACHE}')
+    os.replace(tmp, path)  # atomic: an interrupted build never leaves a half-written cache
+    print(f'records cached to {path}')
 
 
 # Under multi-GPU only rank 0 builds (every rank building would redo the same slow work N times); the
@@ -248,50 +277,65 @@ def write_records_cache():
 if _distributed:
     if not dist.is_initialized():
         dist.init_process_group(backend='nccl', timeout=datetime.timedelta(hours=6))
-    if int(os.environ['RANK']) == 0 and not os.path.exists(RECORDS_CACHE):
-        write_records_cache()
+    if int(os.environ['RANK']) == 0:
+        for source in SOURCES:
+            if not os.path.exists(records_cache(source)):
+                write_records_cache(source)
     dist.barrier()
-elif not os.path.exists(RECORDS_CACHE):
-    write_records_cache()
+else:
+    for source in SOURCES:
+        if not os.path.exists(records_cache(source)):
+            write_records_cache(source)
 
 if args.build_only:
-    print(f'--build_only: records cache ready at {RECORDS_CACHE}; exiting before model load.')
+    print(f'--build_only: records cache ready at {", ".join(records_cache(s) for s in SOURCES)}; exiting before model load.')
     raise SystemExit(0)
 
-print(f'loading cached records from {RECORDS_CACHE}')
-with open(RECORDS_CACHE) as f:
-    _cached = json.load(f)
-examples, records = _cached['examples'], _cached['records']
 
-# The shared 60/60/60 EgoGroups validation clips (data_utils.VAL_SCENARIOS, 180 clips) are never trained on.
-# --val_pairs > 0: the validation set is --val_pairs pairs from those clips only, always balanced Yes/No (half each, so
-# it stays 1:1 whatever --neg_per_pos the training pairs use). Each label is taken round-robin over the clips (one
-# random pair of that label per clip per round, seed 42) so every clip with pairs is covered about equally (175 of the
-# 180 clips have pairs; 5 scattered ones have nobody in a group). --val_pairs 0: no validation (the 180 clips stay
-# held out).
-val_scenarios = data_utils.VAL_SCENARIOS
-held_out = [i for i, e in enumerate(examples) if e['scenario_idx'] in val_scenarios]
-val_idx = set()
-if args.val_pairs > 0:
-    import random
-    rng = random.Random(42)
-    for label in ('Yes', 'No'):
-        per_clip = {}
-        for i in held_out:
-            if examples[i]['label'] == label:
-                per_clip.setdefault(examples[i]['scenario_idx'], []).append(i)
-        for rows in per_clip.values():
-            rng.shuffle(rows)
-        picked = 0
-        while picked < args.val_pairs // 2 and any(per_clip.values()):
-            for clip in sorted(per_clip):
-                if per_clip[clip] and picked < args.val_pairs // 2:
-                    val_idx.add(per_clip[clip].pop())
-                    picked += 1
-train_records = [r for e, r in zip(examples, records) if e['scenario_idx'] not in val_scenarios]
-val_records = [records[i] for i in sorted(val_idx)]
-val_examples = [examples[i] for i in sorted(val_idx)]
-print(f'train: {len(train_records)}  val: {len(val_records)} (of {len(held_out)} pairs in the {len(val_scenarios)} held-out clips)')
+def pick_val(examples, val_scenarios, n_pairs):
+    """Indices of n_pairs validation pairs (half Yes, half No) taken round-robin over the held-out scenarios."""
+    held_out = [i for i, e in enumerate(examples) if e['scenario_idx'] in val_scenarios]
+    val_idx = set()
+    if n_pairs > 0:
+        import random
+        rng = random.Random(42)
+        for label in ('Yes', 'No'):
+            per_clip = {}
+            for i in held_out:
+                if examples[i]['label'] == label:
+                    per_clip.setdefault(examples[i]['scenario_idx'], []).append(i)
+            for rows in per_clip.values():
+                rng.shuffle(rows)
+            picked = 0
+            while picked < n_pairs // 2 and any(per_clip.values()):
+                for clip in sorted(per_clip):
+                    if per_clip[clip] and picked < n_pairs // 2:
+                        val_idx.add(per_clip[clip].pop())
+                        picked += 1
+    return held_out, val_idx
+
+
+# The validation scenes / clips of each source (data_utils.VAL_SCENARIOS: the 180 EgoGroups val clips, the 7 JRDB val
+# scenes) are never trained on. --val_pairs > 0: the validation set is --val_pairs pairs from them only (jrdbego: half
+# from each dataset), always balanced Yes/No (half each, so it stays 1:1 whatever --neg_per_pos the training pairs
+# use). Each label is taken round-robin over the clips (one random pair of that label per clip per round, seed 42) so
+# every clip with pairs is covered about equally (175 of the 180 EgoGroups clips have pairs; 5 scattered ones have
+# nobody in a group). --val_pairs 0: no validation (the held-out clips stay held out).
+examples, train_records, val_records, val_examples = [], [], [], []
+for source in SOURCES:
+    print(f'loading cached records from {records_cache(source)}')
+    with open(records_cache(source)) as f:
+        _cached = json.load(f)
+    src_examples, src_records = _cached['examples'], _cached['records']
+    val_scenarios = SOURCE_UTILS[source].VAL_SCENARIOS
+    held_out, val_idx = pick_val(src_examples, val_scenarios, args.val_pairs // len(SOURCES))
+    train_records += [r for e, r in zip(src_examples, src_records) if e['scenario_idx'] not in val_scenarios]
+    val_records += [src_records[i] for i in sorted(val_idx)]
+    val_examples += [src_examples[i] for i in sorted(val_idx)]
+    examples += src_examples
+    print(f'{source}: train {sum(e["scenario_idx"] not in val_scenarios for e in src_examples)}  val {len(val_idx)} '
+          f'(of {len(held_out)} pairs in the {len(val_scenarios)} held-out scenes/clips)')
+print(f'train: {len(train_records)}  val: {len(val_records)}')
 
 print(train_records[0]['images'])
 print(train_records[0]['prompt'][0]['content'])
@@ -437,7 +481,7 @@ eval_model = MODEL_CLASS.from_pretrained(merged_dir, dtype=torch.bfloat16).to('c
 eval_model.eval()
 
 holdout = val_examples[0] if val_examples else examples[-1]  # (a training pair when --val_pairs 0)
-rgb_path, depth_path, text = get_pair_crops_and_text(holdout)
+rgb_path, depth_path, text = get_pair_crops_and_text(holdout, SOURCES[0] if val_examples else SOURCES[-1])
 holdout_rgb = PILImage.open(rgb_path).convert('RGB')
 holdout_depth = PILImage.open(depth_path).convert('RGB')
 

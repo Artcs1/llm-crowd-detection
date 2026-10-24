@@ -21,7 +21,7 @@ def parse_args():
         '--dataset', type=str,
         choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
                  'egogroups-synth-train', 'egogroups-synth-train-subset',
-                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset'],
+                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'egogroups-city'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py (JRDB_train_fixed_gold, F1_evaluator/out/gt.pkl); "
              "'egogroups' uses egogroups_data_utils.py (gold_SEKAI_900_3, "
@@ -29,7 +29,12 @@ def parse_args():
              "egogroups_train_data_utils.py (EgoGroups_train, "
              "F1_evaluator/out/gt_group_10fps_train.pkl); the '-subset' variants are the "
              "same source further filtered to drop all-singleton examples (zero real/"
-             "non-singleton groups), on top of the empty-groups filter that always applies."
+             "non-singleton groups), on top of the empty-groups filter that always applies. 'jrdbego': JRDB "
+             "train (20 scenes) + EgoGroups_train (the clips outside the baselines' geo180 val split), plain union; "
+             "validation on the 7 JRDB val scenes and the 180 geo180 clips, reported separately (eval_jrdb_loss, "
+             "eval_ego_loss); checkpoints '-jrdbego-geo180'. 'egogroups-city': the egogroups-city split "
+             "(egogroups_city.py; clips of EgoGroups_train and EgoGroups_test, no city shared between splits), "
+             "train on its 1620 train clips, validate on its 180 val clips; checkpoints '-egogroups-city'."
     )
     parser.add_argument(
         '--variant', type=str, choices=['p1_visual', 'idsonly'], default='p1_visual',
@@ -114,6 +119,7 @@ from PIL import Image
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration, Qwen3VLForConditionalGeneration
 from trl import SFTConfig, SFTTrainer
 
+import egogroups_city_data_utils
 import egogroups_data_utils
 import egogroups_synth_train_data_utils
 import egogroups_train_data_utils
@@ -131,6 +137,8 @@ if args.dataset == 'jrdb' and args.jrdb_val_split:
     dataset_suffix = '-jrdbtrain'
 if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_val_split:
     dataset_suffix += '-valsplit'
+if args.dataset == 'jrdbego':
+    dataset_suffix = '-jrdbego-geo180'
 DATASET_SUFFIX = f'{mode_suffix}{variant_infix}{dataset_suffix}'
 if args.lm_lora and args.lm_merger_lora:
     raise ValueError("--lm_lora and --lm_merger_lora are exclusive (LM only vs LM + merger)")
@@ -149,6 +157,21 @@ DATASET_SUFFIX += args.tag
 if args.dataset == 'jrdb':
     build_examples = sft_data_utils.build_sft_examples if args.mode == 'single' else sft_data_utils.build_sft_examples_full
     examples = build_examples(require_image=True)
+elif args.dataset == 'jrdbego':
+    # both loaders, each example tagged with its source; EgoGroups scenario_idx shifted by JOINT_EGO_OFFSET so the two
+    # datasets' scenario ids (JRDB 0-26, EgoGroups 0-1799) never collide in the scenario-level split below
+    jrdb_build = sft_data_utils.build_sft_examples if args.mode == 'single' else sft_data_utils.build_sft_examples_full
+    ego_build = (egogroups_train_data_utils.build_sft_examples if args.mode == 'single'
+                 else egogroups_train_data_utils.build_sft_examples_full)
+    JOINT_EGO_OFFSET = 10000
+    examples = [dict(e, source='jrdb') for e in jrdb_build(require_image=True)]
+    examples += [dict(e, source='ego', scenario_idx=e['scenario_idx'] + JOINT_EGO_OFFSET)
+                 for e in ego_build(require_image=True, exclude_all_singleton=False)]
+elif args.dataset == 'egogroups-city':
+    # city train + val clips of both EgoGroups folders (scenario_idx = clip - 1); the city test clips are never loaded
+    build_examples = (egogroups_city_data_utils.build_sft_examples if args.mode == 'single'
+                      else egogroups_city_data_utils.build_sft_examples_full)
+    examples = build_examples(splits=('train', 'val'), require_image=True, exclude_all_singleton=False)
 elif args.dataset in ('egogroups', 'egogroups-subset'):
     build_examples = egogroups_data_utils.build_sft_examples if args.mode == 'single' else egogroups_data_utils.build_sft_examples_full
     examples = build_examples(
@@ -181,11 +204,25 @@ if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_va
     train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
     val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
 
+if args.dataset == 'egogroups-city':  # the city val clips (never trained on)
+    val_scenarios = {e['scenario_idx'] for e in examples if e['city_split'] == 'val'}
+    train_examples = [e for e in examples if e['city_split'] == 'train']
+    val_examples = [e for e in examples if e['city_split'] == 'val']
+
 if args.dataset == 'jrdb' and args.jrdb_val_split:
     # JRDB: hold out the 7 val scenes of the baselines (never trained on)
     val_scenarios = {e['scenario_idx'] for e in examples if e['sequence_name'] in sft_data_utils.JRDB_VAL_SCENES}
     train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
     val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+
+if args.dataset == 'jrdbego':
+    # JRDB: the 7 val scenes of the baselines; EgoGroups: the geo180 val clips of the baselines (never trained on)
+    val_scenarios = ({e['scenario_idx'] for e in examples if e['source'] == 'jrdb' and e['sequence_name'] in sft_data_utils.JRDB_VAL_SCENES}
+                     | {s + JOINT_EGO_OFFSET for s in egogroups_train_data_utils.VAL_SCENARIOS_GEO180})
+    train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
+    val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+    print(f"train: JRDB {sum(e['source'] == 'jrdb' for e in train_examples)}, EgoGroups {sum(e['source'] == 'ego' for e in train_examples)}; "
+          f"val: JRDB {sum(e['source'] == 'jrdb' for e in val_examples)}, EgoGroups {sum(e['source'] == 'ego' for e in val_examples)}")
 
 print(f'train: {len(train_examples)} examples, val: {len(val_examples)} examples')
 print(f'held-out scenarios: {sorted(val_scenarios)}')
@@ -314,6 +351,9 @@ print(train_records[0]['completion'][0]['content'])
 # that row is actually accessed (during collation), instead of loading every frame up front.
 train_dataset = Dataset.from_list(train_records).cast_column('image', HFImage())
 val_dataset = Dataset.from_list(val_records).cast_column('image', HFImage())
+if args.dataset == 'jrdbego':  # one eval loss per dataset (eval_jrdb_loss, eval_ego_loss)
+    val_dataset = {src: Dataset.from_list([r for r, e in zip(val_records, val_examples) if e['source'] == src])
+                   .cast_column('image', HFImage()) for src in ('jrdb', 'ego')}
 print(train_dataset, val_dataset)
 
 MODEL_NAME, CKPT_PREFIX = sft_data_utils.BASE_MODELS[args.base]['vlm']

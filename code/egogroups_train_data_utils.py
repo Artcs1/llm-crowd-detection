@@ -47,6 +47,11 @@ BASE_CLIP_OFFSET = 901  # scenario_idx = base_clip_number - BASE_CLIP_OFFSET
 # last 60 clips of each density (1141-1200, 1741-1800, 2641-2700) are held out -- 180 clips, 1:1:1 like EgoGroups_test.
 VAL_CLIPS = [*range(1141, 1201), *range(1741, 1801), *range(2641, 2701)]
 VAL_SCENARIOS = {c - BASE_CLIP_OFFSET for c in VAL_CLIPS}  # scenario_idx convention of this loader
+# The geo180 split of the baselines (6 clips per region and density, egogroups_val_geo180.txt); used by the joint
+# JRDB + EgoGroups runs (--dataset jrdbego). --ego_val_split runs keep the density180 split above.
+VAL_CLIPS_GEO180 = [int(l) for l in open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'egogroups_val_geo180.txt'))
+                    if l.strip()]
+VAL_SCENARIOS_GEO180 = {c - BASE_CLIP_OFFSET for c in VAL_CLIPS_GEO180}
 DEFAULT_DEPTH_METHOD = 'detany_3D'
 
 
