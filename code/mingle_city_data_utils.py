@@ -2,12 +2,14 @@
 over both EgoGroups folders -- EgoGroups_train (clips 901-2700, EVP depth gold_egogroups_train) and EgoGroups_test
 (clips 1-900, gold_egogroups_test; same jsons_step4 / videos_frames layout) -- keeping the city train + val clips
 (the city test clips are never loaded). scenario_idx = clip_number - 1; VAL_SCENARIOS = the 180 city val clips.
+use_benchmark('benchmark3') switches TRAINVAL / VAL_SCENARIOS to another egogroups_city.BENCHMARKS division (benchmark3:
+train + id_val clips, VAL_SCENARIOS = id_val).
 """
 
 import os
 
 import mingle_train_data_utils as M
-from egogroups_city import CITY
+from egogroups_city import BENCHMARKS, CITY
 
 DATA_ROOT = M.DATA_ROOT
 SOURCES = {  # folder -> (dataset dir, depth dir, GT pickle, clip number of scenario_idx 0)
@@ -17,6 +19,13 @@ SOURCES = {  # folder -> (dataset dir, depth dir, GT pickle, clip number of scen
 }
 TRAINVAL = set(CITY['train']) | set(CITY['val'])
 VAL_SCENARIOS = {c - 1 for c in CITY['val']}
+
+
+def use_benchmark(name):
+    global TRAINVAL, VAL_SCENARIOS
+    B = BENCHMARKS[name]
+    val = B['val'] if 'val' in B else B['id_val']
+    TRAINVAL, VAL_SCENARIOS = set(B['train']) | set(val), {c - 1 for c in val}
 
 
 def build_pairwise_examples(neg_per_pos=3, require_depth=True, limit=None, seed=42):

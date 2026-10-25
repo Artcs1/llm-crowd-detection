@@ -21,7 +21,7 @@ def parse_args():
         '--dataset', type=str,
         choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
                  'egogroups-synth-train', 'egogroups-synth-train-subset',
-                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'egogroups-city'],
+                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'egogroups-city', 'egogroups-benchmark3'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py (JRDB_train_fixed_gold, F1_evaluator/out/gt.pkl); "
              "'egogroups' uses egogroups_data_utils.py (gold_SEKAI_900_3, "
@@ -34,7 +34,9 @@ def parse_args():
              "validation on the 7 JRDB val scenes and the 180 geo180 clips, reported separately (eval_jrdb_loss, "
              "eval_ego_loss); checkpoints '-jrdbego-geo180'. 'egogroups-city': the egogroups-city split "
              "(egogroups_city.py; clips of EgoGroups_train and EgoGroups_test, no city shared between splits), "
-             "train on its 1620 train clips, validate on its 180 val clips; checkpoints '-egogroups-city'."
+             "train on its 1620 train clips, validate on its 180 val clips; checkpoints '-egogroups-city'. "
+             "'egogroups-benchmark3': the same loader on benchmark3 (benchmark3_{train,id_val}_clip_ids.txt, 1533 / 219 "
+             "clips; README_benchmark3.md), checkpoints '-egogroups-benchmark3'."
     )
     parser.add_argument(
         '--variant', type=str, choices=['p1_visual', 'idsonly'], default='p1_visual',
@@ -120,6 +122,7 @@ from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration, Qwen
 from trl import SFTConfig, SFTTrainer
 
 import egogroups_city_data_utils
+CITY_LIKE = {'egogroups-city': 'city', 'egogroups-benchmark3': 'benchmark3'}  # --dataset -> egogroups_city.BENCHMARKS key
 import egogroups_data_utils
 import egogroups_synth_train_data_utils
 import egogroups_train_data_utils
@@ -167,11 +170,12 @@ elif args.dataset == 'jrdbego':
     examples = [dict(e, source='jrdb') for e in jrdb_build(require_image=True)]
     examples += [dict(e, source='ego', scenario_idx=e['scenario_idx'] + JOINT_EGO_OFFSET)
                  for e in ego_build(require_image=True, exclude_all_singleton=False)]
-elif args.dataset == 'egogroups-city':
+elif args.dataset in CITY_LIKE:
     # city train + val clips of both EgoGroups folders (scenario_idx = clip - 1); the city test clips are never loaded
     build_examples = (egogroups_city_data_utils.build_sft_examples if args.mode == 'single'
                       else egogroups_city_data_utils.build_sft_examples_full)
-    examples = build_examples(splits=('train', 'val'), require_image=True, exclude_all_singleton=False)
+    examples = build_examples(splits=('train', 'val'), benchmark=CITY_LIKE[args.dataset], require_image=True,
+                              exclude_all_singleton=False)
 elif args.dataset in ('egogroups', 'egogroups-subset'):
     build_examples = egogroups_data_utils.build_sft_examples if args.mode == 'single' else egogroups_data_utils.build_sft_examples_full
     examples = build_examples(
@@ -204,7 +208,7 @@ if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_va
     train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
     val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
 
-if args.dataset == 'egogroups-city':  # the city val clips (never trained on)
+if args.dataset in CITY_LIKE:  # the city (benchmark3: id_val) val clips (never trained on)
     val_scenarios = {e['scenario_idx'] for e in examples if e['city_split'] == 'val'}
     train_examples = [e for e in examples if e['city_split'] == 'train']
     val_examples = [e for e in examples if e['city_split'] == 'val']

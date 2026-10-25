@@ -95,10 +95,13 @@ outside the repo and are referenced by absolute paths (`/lp-dev/jmurrugarral/{go
      stubs and that detection track_ids still align with GT (see `fix_egogroups_track_ids.py`) before debugging
      the matching logic.
      `egogroups_city_data_utils.py` (`--dataset egogroups-city`; see "EgoGroups splits" below) runs the
-     `egogroups_train_data_utils.py` builders over both EgoGroups folders and keeps the city train/val clips.
+     `egogroups_train_data_utils.py` builders over both EgoGroups folders and keeps the city train/val clips;
+     its `benchmark=` argument (`--dataset egogroups-benchmark3` -> `'benchmark3'`, via `CITY_LIKE` in the SFT/RL
+     scripts) keeps another division's clips instead (`'id_val'` is returned as `city_split == 'val'`).
    - `mingle_sft_training.py` + `mingle_train_data_utils.py` — separate MINGLE-style pairwise ("are these two
      grouped?" → `Yes`/`No`) VLM SFT on EgoGroups_train with RGB+depth crops; multi-GPU via `accelerate launch`.
-     `--dataset egogroups-city` uses `mingle_city_data_utils.py`.
+     `--dataset egogroups-city` uses `mingle_city_data_utils.py`; `--dataset egogroups-benchmark3` uses the same
+     module after `use_benchmark('benchmark3')` (TRAINVAL = train + id_val, VAL_SCENARIOS = id_val).
    - `debug_grpo_inference.py` / `debug_vlm_generate.py` — load a merged checkpoint with plain `transformers` and
      print raw generations, to tell bad completions apart from parsing bugs.
    - Test a checkpoint: `vllm serve sft_output/<merged_dir> --served-model-name X --api-key testkey --port 8000`,
@@ -161,7 +164,8 @@ One-off data-prep scripts (already run; not part of the normal pipeline): `fix_e
 
 Clips are numbered 1-2700: `EgoGroups_test` holds 1-900, `EgoGroups_train` holds 901-2700 (5 ten-frame sub-clips
 each, `clip_XXXX_YYYYY`). Per-clip city / country / `globe_region` / `density` are in `annotations/jsons_step1/clip_XXXX.json`.
-Three train/val/test definitions exist; the env var `EGO_VAL_SPLIT` picks one in the baselines' loaders:
+Five train/val/test definitions exist; the env var `EGO_VAL_SPLIT` picks one in the baselines' loaders (`geo180`,
+`density180`, `city`, `benchmark3`; `benchmark2` has lists, GT and folders only):
 
 - `geo180` (default): train = EgoGroups_train minus the 180 val clips of `egogroups_val_geo180.txt` (6 per region x
   density), test = EgoGroups_test (1-900).
@@ -189,6 +193,33 @@ Three train/val/test definitions exist; the env var `EGO_VAL_SPLIT` picks one in
     (GroupTrans), `test_egogroupscity.sh` (DVT3), `run_mingle.py --dataset egogroupscity_test` (MINGLE).
   - Training: `--dataset egogroups-city` (SFT / RL VLM scripts, MINGLE; checkpoints `-egogroups-city`), `EGO_VAL_SPLIT=city`
     (baselines). Full commands: `<root>/TRAINING_TESTING_SPECS.txt` section 9.
+- `benchmark2` (in-distribution / out-of-distribution): user-provided lists `laaf4_train_clip_ids.txt` (1359),
+  `laaf_id_val_clip_ids.txt` (194), `laaf_id_test_clip_ids.txt` (388), `laaf_ood_test_clip_ids.txt` (759); disjoint,
+  together all 2700 clips, no city or source video shared. OOD test = all clips of African, Eastern Europe and Latin
+  America (no other split has them). `egogroups_city.BENCHMARKS['benchmark2']`; GT `gt_group_10fps_benchmark2_{train,val,id_test,ood_test}.{txt,pkl}`
+  (`python egogroups_city.py gt --benchmark benchmark2`, seq = clip - 1); folders `EgoGroupsBenchmark2_{Train,IDTest,OODTest}`
+  (+ `_jrdbstyle` copies of the two tests, + `EVP/depth/gold_egogroupsbenchmark2_*`) from
+  `scripts/make_egogroupscity_folders.py --benchmark benchmark2`. `compute_detections.py` / `compute_groupings.py`
+  take those folder names as `--dataset`. Not wired into the training loaders yet.
+- `benchmark3` (OOD_city / OOD_regions): `benchmark3_{train,id_val,id_test,ood_test}_clip_ids.txt` (1533 / 219 / 438 / 510),
+  no city or source video shared. id_test = **OOD_city** (unseen cities, seen regions), ood_test = **OOD_regions** (the only
+  African + Latin America clips). GT `gt_group_10fps_benchmark3_{train,id_val,id_test,ood_test}.{txt,pkl}`; folders
+  `EgoGroupsBenchmark3_Train` (train + id_val), `EgoGroupsOODCity_Test`, `EgoGroupsOODRegions_Test` (+ `_jrdbstyle` copies,
+  + depth) via `--benchmark benchmark3`; tester `--dataset` options as for benchmark2; zero-shot runner `GT=benchmark3_id_test`.
+  Reproduction steps + training/testing of every method: `README_benchmark3.md`, specs section 10
+  (`EGO_VAL_SPLIT=benchmark3`, `--dataset egogroups-benchmark3`, test splits `ood_city` / `ood_regions`).
+  - Training = the 1533 train clips; validation (checkpoint / threshold selection only, never trained on) = the 219
+    id_val clips; the 948 test clips are never loaded. Methods reading `EgoGroupsBenchmark3_Train` (DVT3, P-HAR,
+    GroupTrans) hold id_val out by clip id (DVT3: `DVT_EGO_VAL_CLIPS=219`). MINGLE builds pairs from train + id_val,
+    drops every id_val pair from training and validates on `--val_pairs` balanced pairs drawn round-robin from id_val.
+    7 train clips and 1 id_val clip have nobody in them (no examples).
+  - Code: `egogroups_city.BENCHMARKS['benchmark3']` is the single source of the lists. Baselines: `RTGD/rtgd_data.py`
+    (`EGO_VAL_SPLIT == "benchmark3"`, `OOD_SPLITS`; Social-CAD, S3R2 reuse it), `PAR/.../egogroups_par.py`
+    (`OOD_SPLITS`), `VLM-GroupDetection/scene_split.py` + `prepare_egogroups_city.py benchmark3` +
+    `run_egogroups_city.sh` (`BENCH=benchmark3`) / `test_egogroupscity.sh` (`TESTSET=`), `GroupTrans/egotools/prepare_city.py
+    benchmark3`, `MINGLE/run_mingle.py --dataset oodcity_test|oodregions_test`. Run dirs get `_benchmark3`.
+  - id_val's regions are uneven vs train (Anglo 20% of train but 8 val clips; Latin Europe / Nordic Europe 27% / 21%
+    of val), so checkpoint selection leans on those regions. Eastern Europe is in-distribution here (OOD in benchmark2).
 - Known issue (not fixed): `JRDB_eval.py`'s `"EgoGroups_test" in detections` tests the lines of the open detection file,
   not its path, so it is never true and per-region / per-density AP for EgoGroups_test reads clip metadata from
   `/lp-dev/jmurrugarral/gold_SEKAI_900_3/`.

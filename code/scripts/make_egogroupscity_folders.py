@@ -14,6 +14,11 @@ detany_3D values), missing jsons_step5 files are left missing.
 
     python scripts/make_egogroupscity_folders.py [--root <folder holding EgoGroups_train / EgoGroups_test>] [--no_depth]
 
+--benchmark benchmark2 builds the same for benchmark2 (egogroups_city.BENCHMARKS): <root>/EgoGroupsBenchmark2_Train
+(train + val, val = laaf_id_val_clip_ids.txt), <root>/EgoGroupsBenchmark2_IDTest, <root>/EgoGroupsBenchmark2_OODTest and
+EVP/depth/gold_egogroupsbenchmark2_{train,idtest,oodtest}. --benchmark benchmark3: <root>/EgoGroupsBenchmark3_Train
+(train + id_val), <root>/EgoGroupsOODCity_Test (id_test) and <root>/EgoGroupsOODRegions_Test (ood_test).
+
 <root> defaults to the folder that contains this repo (llm-crowd-detection/..). The depth links are skipped (with a
 message) when <root>/EVP/depth/gold_egogroups_{test,train} do not exist, or with --no_depth; only MINGLE uses them.
 Re-running is safe: existing links are kept, missing ones are added. See README_egogroups_city.md.
@@ -25,12 +30,13 @@ import sys
 
 CODE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, CODE)
-from egogroups_city import CITY  # noqa: E402
+from egogroups_city import BENCHMARKS  # noqa: E402
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--root', default=os.path.abspath(os.path.join(CODE, '..', '..')),
                 help='folder holding EgoGroups_train and EgoGroups_test (default: the parent of llm-crowd-detection)')
 ap.add_argument('--no_depth', action='store_true', help='do not link the EVP depth maps')
+ap.add_argument('--benchmark', choices=sorted(BENCHMARKS), default='city')
 args = ap.parse_args()
 ROOT = os.path.abspath(args.root)
 for name in ('EgoGroups_train', 'EgoGroups_test'):
@@ -41,7 +47,15 @@ LINK_DEPTH = not args.no_depth and all(os.path.isdir(d) for d in DEPTH_SRC.value
 if not args.no_depth and not LINK_DEPTH:
     print('EVP depth maps not found (', ', '.join(DEPTH_SRC.values()), '): skipping the depth links')
 SUBS = [f'jsons_step{i}' for i in range(1, 7)] + ['videos_frames']
-FOLDERS = {'EgoGroupsCity_Train': CITY['train'] + CITY['val'], 'EgoGroupsCity_Test': CITY['test']}
+B = BENCHMARKS[args.benchmark]
+if args.benchmark == 'city':
+    FOLDERS = {'EgoGroupsCity_Train': B['train'] + B['val'], 'EgoGroupsCity_Test': B['test']}
+elif args.benchmark == 'benchmark3':  # id_test = OOD_city, ood_test = OOD_regions
+    FOLDERS = {'EgoGroupsBenchmark3_Train': B['train'] + B['id_val'], 'EgoGroupsOODCity_Test': B['id_test'],
+               'EgoGroupsOODRegions_Test': B['ood_test']}
+else:
+    FOLDERS = {'EgoGroupsBenchmark2_Train': B['train'] + B['val'], 'EgoGroupsBenchmark2_IDTest': B['id_test'],
+               'EgoGroupsBenchmark2_OODTest': B['ood_test']}
 
 
 def link(target, name):
@@ -68,7 +82,7 @@ for folder, clips in FOLDERS.items():
     if not LINK_DEPTH:
         print(folder, len(clips), 'clips', counts)
         continue
-    depth = os.path.join(ROOT, 'EVP', 'depth', 'gold_egogroupscity_' + folder.split('_')[1].lower())
+    depth = os.path.join(ROOT, 'EVP', 'depth', 'gold_' + folder.lower())  # gold_egogroupscity_train, ...
     os.makedirs(depth, exist_ok=True)
     for c in clips:
         src = DEPTH_SRC['test' if c <= 900 else 'train']

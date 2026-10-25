@@ -27,8 +27,22 @@ def main():
         print(f'skip_existing: {n - len(collected_files)} done, {len(collected_files)} to run')
 
     collected_files = collected_files[args.part_id::args.num_parts]  # --num_parts/--part_id: interleaved split
+    if args.claim_dir:
+        os.makedirs(args.claim_dir, exist_ok=True)
+        saved = lambda name: os.path.exists(os.path.join('../results/predictions', args.frame_path.split('/')[-2],
+                                                         'results' if args.setting == 'single' else 'results_full',
+                                                         args.model.split('/')[1], args.mode, args.depth_method,
+                                                         args.prompt_method, str(args.frame_id), name, f'{name}.json'))
 
     for current_file in tqdm(collected_files):
+        if args.claim_dir:  # shared queue: take the keyframe only if no other client has claimed or finished it
+            name = current_file.split('/')[-1][:-5]
+            if saved(name):
+                continue
+            try:
+                os.close(os.open(os.path.join(args.claim_dir, name), os.O_CREAT | os.O_EXCL))
+            except FileExistsError:
+                continue
 
         #try:
             #print(current_file)

@@ -510,6 +510,10 @@ def parse_args():
     parser.add_argument('--skip_existing', action='store_true', help='Skip keyframes that already have a saved prediction (resume a run)')
     parser.add_argument('--num_parts', type=int, default=1, help='Split the keyframes into this many parts (one client per part)')
     parser.add_argument('--part_id', type=int, default=0, help='Which part this client runs, 0..num_parts-1')
+    parser.add_argument('--claim_dir', type=str, default=None,
+                        help='Shared work queue: every client walks the whole list and runs a keyframe only if it can '
+                             'create <claim_dir>/<name> first (and it has no saved prediction yet), so clients never '
+                             'wait on a fixed share; use with --num_parts 1')
     return parser.parse_args()
 
 

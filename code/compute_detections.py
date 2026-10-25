@@ -18,7 +18,7 @@ def add_prediction(det_file, idx, int_img, x1, y1, x2, y2, group_id, dc, lvl):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Select mode, prompt method, model, and VLM mode")
-    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_val_fixed_gold","JRDB_fixed_gold_egostyle","JRDB_val_fixed_gold_egostyle","JRDB_fixed","EgoGroups_test","EgoGroups_test_jrdbstyle","EgoGroupsCity_Test","gold_SEKAI_900_3"], required=True, help="Dataset options")
+    parser.add_argument("--dataset", type=str, choices=["JRDB_fixed_gold","JRDB_val_fixed_gold","JRDB_fixed_gold_egostyle","JRDB_val_fixed_gold_egostyle","JRDB_fixed","EgoGroups_test","EgoGroups_test_jrdbstyle","EgoGroupsCity_Test","EgoGroupsCity_Test_jrdbstyle","EgoGroupsBenchmark2_IDTest","EgoGroupsBenchmark2_OODTest","EgoGroupsBenchmark2_IDTest_jrdbstyle","EgoGroupsBenchmark2_OODTest_jrdbstyle","EgoGroupsOODCity_Test","EgoGroupsOODRegions_Test","EgoGroupsOODCity_Test_jrdbstyle","EgoGroupsOODRegions_Test_jrdbstyle","gold_SEKAI_900_3"], required=True, help="Dataset options")
     parser.add_argument("--mode", type=str, choices=["single","full"], required=True, help="Mode: single or full")
     parser.add_argument("--depth_method", type=str, choices=["naive_3D_60FOV","detany_3D","unidepth_3D","wilddet_3D"], default="naive_3D_60FOV", help="Depth method")
     parser.add_argument("--prompt_method", type=str, choices=["baseline1","baseline2","p1","p1_bbox","p2","p3","p4","p5","p1_visual","p1_bbox","p1_visual_only","p1_depthanything","p1_visual_depthanything","naive_cluster"], required=True, help="Prompt method")
@@ -45,7 +45,7 @@ if __name__ == '__main__':
         H, W = 1080, 1920
     elif args.dataset == 'gold_SEKAI_900_3':
         H, W = 1080, 1920
-    elif args.dataset in ('EgoGroups_test', 'EgoGroups_test_jrdbstyle', 'EgoGroupsCity_Test'):
+    elif args.dataset in ('EgoGroups_test', 'EgoGroups_test_jrdbstyle', 'EgoGroupsCity_Test', 'EgoGroupsCity_Test_jrdbstyle', 'EgoGroupsBenchmark2_IDTest', 'EgoGroupsBenchmark2_OODTest', 'EgoGroupsBenchmark2_IDTest_jrdbstyle', 'EgoGroupsBenchmark2_OODTest_jrdbstyle', 'EgoGroupsOODCity_Test', 'EgoGroupsOODRegions_Test', 'EgoGroupsOODCity_Test_jrdbstyle', 'EgoGroupsOODRegions_Test_jrdbstyle'):
         H, W = 1080, 1920
     
     results_folder = f"../results/predictions/{args.dataset}/results" if args.mode == "single" else f"../results/predictions/{args.dataset}/results_{args.mode}"
@@ -115,7 +115,7 @@ if __name__ == '__main__':
             idx   = int(int(scenario.split('_')[-1])) - 1
             number   = 0
             dc, int_img, lvl, group_id = 1, (number+1)*1, 1, 1
-        elif args.dataset in ('EgoGroups_test', 'EgoGroups_test_jrdbstyle', 'EgoGroupsCity_Test'):
+        elif args.dataset in ('EgoGroups_test', 'EgoGroups_test_jrdbstyle', 'EgoGroupsCity_Test', 'EgoGroupsCity_Test_jrdbstyle', 'EgoGroupsBenchmark2_IDTest', 'EgoGroupsBenchmark2_OODTest', 'EgoGroupsBenchmark2_IDTest_jrdbstyle', 'EgoGroupsBenchmark2_OODTest_jrdbstyle', 'EgoGroupsOODCity_Test', 'EgoGroupsOODRegions_Test', 'EgoGroupsOODCity_Test_jrdbstyle', 'EgoGroupsOODRegions_Test_jrdbstyle'):
             split_scenario = scenario.split('_')
             orig_scenario  = "".join(split_scenario[:-1]) 
             number   = int(split_scenario[-1])
