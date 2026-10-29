@@ -14,7 +14,7 @@ from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, vlm_Identify
 
 from prompts import vlm_IdentifyGroupsText
 
-from prompts import IdentifyGroups_AllFrames, vlm_IdentifyGroups_AllFramesText, vlm_IdentifyGroups_AllFramesImage, vlm_GroupsQAonlyFullImage, full_baseline2, vlm_IdentifyGroups_AllFramesImage_withbboxes, vlm_IdentifyGroups_AllFramesImage_idsonly
+from prompts import IdentifyGroups_AllFrames, vlm_IdentifyGroups_AllFramesText, vlm_IdentifyGroups_AllFramesImage, vlm_GroupsQAonlyFullImage, full_baseline2, vlm_IdentifyGroups_AllFramesImage_withbboxes, vlm_IdentifyGroups_AllFramesImage_idsonly, vlm_IdentifyGroups_MotionImage_idsonly
 
 CV2_COLORS = [ 
     (0, 0, 255),      # Red
@@ -87,17 +87,56 @@ def get_movement_direction(input_text, target_frame, stationary_threshold=0.3):
     return directions
 
 
+def get_movement_direction_2d(bboxes, target_frame, stationary_frac=0.2):
+    """2D (image-plane) counterpart of get_movement_direction() for prompts without numeric coordinates
+    (p1_visual_only full): bboxes is one {person_id: [x1, y1, x2, y2]} dict per frame (the second return
+    value of get_allframes_bboxes). Net displacement of each person's box centre from their earliest
+    pre-target frame to the target frame, 'stationary' below stationary_frac x their target box height
+    (scale-free, ~0.3 m for a 1.7 m person, like the 3D threshold). Same 8-way labels and angle convention
+    as get_movement_direction() (image x right, y down)."""
+    def centre(b):
+        return (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+
+    earliest_position = {}
+    for frame in bboxes[:target_frame - 1]:
+        for pid, b in frame.items():
+            if pid not in earliest_position:
+                earliest_position[pid] = centre(b)
+
+    COMPASS = ['E', 'NE', 'N', 'NW', 'W', 'SW', 'S', 'SE']
+    directions = {}
+    for pid, b in bboxes[target_frame - 1].items():
+        if pid not in earliest_position:
+            directions[pid] = 'stationary'
+            continue
+        (x0, y0), (x1, y1) = earliest_position[pid], centre(b)
+        dx, dy = x1 - x0, y1 - y0
+        if (dx ** 2 + dy ** 2) ** 0.5 < stationary_frac * abs(b[3] - b[1]):
+            directions[pid] = 'stationary'
+        else:
+            angle = math.degrees(math.atan2(dy, dx)) % 360
+            directions[pid] = COMPASS[int((angle + 22.5) % 360 // 45)]
+    return directions
+
+
 def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path='', prompt_method='p1'):
     is_error = False
     try:
-        is_bbox_shape = prompt_method in ('p1_bbox', 'p1_visual', 'p1_visual_only')
+        is_bbox_shape = prompt_method in ('p1_bbox', 'p1_visual', 'p1_visual_only', 'p1_visual_only_video')
         raw_target = input_text[target_frame - 1]
         target_bboxes, target_xyz = raw_target if is_bbox_shape else (None, raw_target)
 
         movement = get_movement_direction(input_text, target_frame)
         if prompt_method == 'p1_visual_only':
-            # No numeric channel for this method -- movement_direction is skipped, the image is
-            # the only signal (see the p1_visual_only decision this was built with).
+            # No numeric coordinates: person_id + movement_direction from the 2D box-centre motion
+            # (get_movement_direction_2d), the same input as the p1_visual_only full SFT/RL training.
+            movement_2d = get_movement_direction_2d(
+                [{d['person_id']: [d['t'], d['l'], d['b'], d['r']] for d in f[0]} for f in input_text], target_frame)
+            enriched_xyz = [{'person_id': d['person_id'], 'movement_direction': movement_2d.get(d['person_id'], 'stationary')}
+                            for d in target_bboxes]
+        elif prompt_method == 'p1_visual_only_video':
+            # Former p1_visual_only full: no numeric channel and no movement_direction; the annotated
+            # target frame plus the annotated video frames are the only signal.
             enriched_xyz = target_xyz
         else:
             enriched_xyz = [
@@ -113,7 +152,9 @@ def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path
             frame_indices = list(range(1, target_frame + 1, step))
             if frame_indices[-1] != target_frame:
                 frame_indices.append(target_frame)
-            if prompt_method == 'p1_bbox' or prompt_method == 'p1' or prompt_method == 'p1_depthanything' or prompt_method == 'baseline1':
+            if prompt_method == 'p1_visual_only':
+                video = None  # single annotated target frame only (movement is in all_frames)
+            elif prompt_method == 'p1_bbox' or prompt_method == 'p1' or prompt_method == 'p1_depthanything' or prompt_method == 'baseline1':
                 video = [dspy.Image.from_file(f'{img_folder}{str(i).zfill(5)}.jpeg') for i in frame_indices]
             else:
                 video = [
@@ -131,6 +172,9 @@ def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path
                 annotated_image = draw_bboxes_with_ids(frame_path, target_bboxes)
                 predictions = dspy_module(image=annotated_image, video=video, all_frames=enriched_xyz)
             elif prompt_method == 'p1_visual_only':
+                annotated_image = draw_bboxes_with_ids(frame_path, target_bboxes)
+                predictions = dspy_module(image=annotated_image, all_frames=enriched_xyz)
+            elif prompt_method == 'p1_visual_only_video':
                 annotated_image = draw_bboxes_with_ids(frame_path, target_bboxes)
                 person_ids = [d['person_id'] for d in target_bboxes]
                 predictions = dspy_module(image=annotated_image, video=video, person_ids=person_ids)
@@ -321,6 +365,8 @@ def get_full_dspy_cot(mode, prompt_method):
         elif prompt_method == 'p1_visual':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_AllFramesImage)
         elif prompt_method == 'p1_visual_only':
+            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_MotionImage_idsonly)
+        elif prompt_method == 'p1_visual_only_video':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_AllFramesImage_idsonly)
 
     return (dspy_cot, use_direction)
@@ -332,7 +378,7 @@ def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
     if prompt_method == 'p1_depthanything':
         depth_method = 'depthanything_3D'
 
-    is_bbox_shape = prompt_method in ('p1_bbox', 'p1_visual', 'p1_visual_only')
+    is_bbox_shape = prompt_method in ('p1_bbox', 'p1_visual', 'p1_visual_only', 'p1_visual_only_video')
 
     all_frames, bboxes = [], []
     for frame in data['frames']:
@@ -499,7 +545,7 @@ def parse_args():
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D','wilddet_3D'], default='detany_3D')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5','p1_bbox','p1_visual','p1_visual_only','p1_depthanything'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5','p1_bbox','p1_visual','p1_visual_only','p1_visual_only_video','p1_depthanything'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
@@ -553,7 +599,7 @@ def parse_args_allframes():
         help="Comma-separated numbers or ranges, e.g. 1,2,5-7,10 or 0:51 or 0:51:15"
     )
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D', 'wilddet_3D'], default='naive_3D_60FOV')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4','p1_bbox','p1_visual','p1_visual_only','p1_depthanything'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4','p1_bbox','p1_visual','p1_visual_only','p1_visual_only_video','p1_depthanything'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)

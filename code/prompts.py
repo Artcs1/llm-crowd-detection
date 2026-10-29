@@ -213,6 +213,18 @@ class vlm_IdentifyGroups_AllFramesImage_idsonly(dspy.Signature):
     groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together in the target frame, inferred using visual context from the image and temporal context from the video. All ids should appear at least once.")
 
 
+class vlm_IdentifyGroups_MotionImage_idsonly(dspy.Signature):
+    """Given an image of the target frame with people annotated by bounding boxes and id labels, and each
+    person's movement direction across the frames leading up to it, compute groups of people who are close
+    together in the target frame. Use only the visual positions of the labeled boxes and the movement
+    directions to judge proximity — no numeric coordinates are provided. Return only non-empty groups. Do not
+    merge distant people into the same group. Do not hallucinate non-existent person_id."""
+
+    image: dspy.Image = dspy.InputField(desc="Image with people in the target frame, bounding boxes and id labels drawn on each person")
+    all_frames: list[dict] = dspy.InputField(desc="List of people in the target frame, where each dictionary has keys: 'person_id' and 'movement_direction' (their net movement direction in the image across the frames leading up to this one, or 'stationary')")
+    groups: list[list[int]] = dspy.OutputField(desc="Groups of person_ids who are close together in the target frame, inferred using the labeled boxes in the image and each person's movement direction. All ids should appear at least once.")
+
+
 class IdentifyGroups_Last5Frames(dspy.Signature):
     """Given detections of people with their 3D positions across past five frames of a video, compute groups of people who are close together in the specified target frame. Use spatial information from all frames as context — for example, to infer stable group memberships even if people temporarily move apart or come closer. Compute pairwise distances between people in the target frame and choose a reasonable grouping threshold based on the distribution of these distances. People belong to the same group if they are spatially close and consistently remain close across frames. Return only non-empty groups. Do not merge distant people into the same group. Do not hallucinate non-existent person_id."""
     past_frames: list[list[dict]] = dspy.InputField(

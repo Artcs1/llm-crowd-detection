@@ -19,7 +19,7 @@ import json
 import os
 import pickle
 
-from utils import get_frame_bboxes, get_allframes_bboxes, get_movement_direction
+from utils import get_frame_bboxes, get_allframes_bboxes, get_movement_direction, get_movement_direction_2d
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JRDB_GOLD_DIR = os.path.join(BASE_DIR, '..', '..', 'JRDB_train_fixed_gold')
@@ -201,6 +201,7 @@ def build_sft_examples_full(scenario_range=None, require_image=True, target_fram
                 'frame_id': target_frame_id,
                 'frame_input_data': frame_input_data,
                 'personid2bbox': personid2bbox,
+                'movement_2d': get_movement_direction_2d(bboxes, target_frame_id),  # 2D box-centre motion, for --variant idsonly --mode full
                 'gt_groups': [[int(p) for p in group] for group in gt_groups],
                 'image_path': image_path,
             })

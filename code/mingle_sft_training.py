@@ -37,7 +37,9 @@ def parse_args():
                              "fine-tuned from (HF model card + config.json: Qwen2VLForConditionalGeneration); "
                              "'qwen2.5-vl' is the other base the paper compares. Also sets the checkpoint "
                              "name prefix (qwen2-vl-7b-... / qwen2.5-vl-7b-...).")
-    parser.add_argument('--dataset', type=str, choices=['egogroups', 'jrdb', 'jrdbego', 'egogroups-city', 'egogroups-benchmark3'],
+    parser.add_argument('--dataset', type=str, choices=['egogroups', 'jrdb', 'jrdbego', 'egogroups-city', 'egogroups-benchmark3', 'egogroups-k05',
+                                                                  'egogroups-k20', 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2',
+                                                                  'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400'],
                         default='egogroups',
                         help="egogroups (default): EgoGroups_train pairs (mingle_train_data_utils.py), validation from the "
                              "180 held-out EgoGroups clips. jrdb: JRDB train pairs (mingle_jrdb_train_data_utils.py), "
@@ -50,7 +52,8 @@ def parse_args():
                              "between splits), train pairs of its 1620 train clips, validation from its 180 val clips; "
                              "checkpoints ...-egogroups-city-train... egogroups-benchmark3: the same on benchmark3 "
                              "(benchmark3_{train,id_val}_clip_ids.txt, 1533 / 219 clips; README_benchmark3.md); "
-                             "checkpoints ...-egogroups-benchmark3-train...")
+                             "checkpoints ...-egogroups-benchmark3-train... egogroups-k05/k20/k60/k86: benchmark3 with only "
+                             "the 300 K??_clip_ids.txt train clips (same id_val); checkpoints ...-egogroups-k05-train...")
     parser.add_argument('--neg_per_pos', type=float, default=1,
                         help='sampled negative pairs per positive pair per frame (see '
                              'mingle_train_data_utils.build_pairwise_examples); fractions allowed, e.g. 1.5 = '
@@ -168,9 +171,10 @@ import mingle_train_data_utils
 # (egogroups-city: city train + val clips of both EgoGroups folders, mingle_city_data_utils.py; crops are shared with
 # 'egogroups', whose cache is keyed by the unique clip names)
 SOURCE_UTILS = {'jrdb': mingle_jrdb_train_data_utils, 'egogroups': mingle_train_data_utils,
-                'egogroups-city': mingle_city_data_utils, 'egogroups-benchmark3': mingle_city_data_utils}
-if args.dataset == 'egogroups-benchmark3':  # same builder, benchmark3's train + id_val clips
-    mingle_city_data_utils.use_benchmark('benchmark3')
+                'egogroups-city': mingle_city_data_utils, 'egogroups-benchmark3': mingle_city_data_utils,
+                **{d: mingle_city_data_utils for d in ('egogroups-k05', 'egogroups-k20', 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2', 'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400')}}
+if args.dataset in ('egogroups-benchmark3', *('egogroups-k05', 'egogroups-k20', 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2', 'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400')):  # same builder, that division's train + id_val clips
+    mingle_city_data_utils.use_benchmark(args.dataset.split('-')[1])
 SOURCES = ['jrdb', 'egogroups'] if args.dataset == 'jrdbego' else [args.dataset]
 data_utils = SOURCE_UTILS[SOURCES[0]]  # DATA_ROOT is the same for both
 if args.neg_per_pos_jrdb is not None and args.dataset != 'jrdbego':
@@ -180,7 +184,8 @@ if args.neg_per_pos_jrdb is not None and args.dataset != 'jrdbego':
 def neg_per_pos(source):
     return args.neg_per_pos_jrdb if source == 'jrdb' and args.neg_per_pos_jrdb is not None else args.neg_per_pos
 TRAIN_TAG = {'jrdb': 'jrdb-train', 'egogroups': 'egogroups-train', 'jrdbego': 'jrdbego-train',
-             'egogroups-city': 'egogroups-city-train', 'egogroups-benchmark3': 'egogroups-benchmark3-train'}[args.dataset]  # checkpoint-name part
+             'egogroups-city': 'egogroups-city-train', 'egogroups-benchmark3': 'egogroups-benchmark3-train',
+             **{d: f'{d}-train' for d in ('egogroups-k05', 'egogroups-k20', 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2', 'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400')}}[args.dataset]  # checkpoint-name part
 
 # MINGLE's scripts/utils/ is a namespace package (no __init__.py) named "utils" -- same name as this
 # repo's own utils.py (a real module). A plain sys.path trick can't make the namespace package win:
@@ -261,7 +266,7 @@ def build_records(source):
 # Records depend on neither --base_model nor --val_pairs (the split happens after loading), so one cache
 # serves every model and every split.
 def records_cache(source):
-    return (f'sft_output/mingle_records_cache/{ {"jrdb": "jrdb_", "egogroups-city": "city_", "egogroups-benchmark3": "benchmark3_"}.get(source, "")}'
+    return (f'sft_output/mingle_records_cache/{ {"jrdb": "jrdb_", "egogroups-city": "city_", "egogroups-benchmark3": "benchmark3_", **{d: d.split("-")[1] + "_" for d in ("egogroups-k05", "egogroups-k20", "egogroups-k60", "egogroups-k86", "egogroups-k86v2", "egogroups-k05_400", "egogroups-k20_400", "egogroups-k60_400", "egogroups-k80_400")}}.get(source, "")}'
             f'neg{neg_per_pos(source):g}_limit{args.limit}.json')
 
 

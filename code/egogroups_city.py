@@ -16,6 +16,10 @@ benchmark2 (BENCHMARKS['benchmark2']): a second user-provided division (laaf*_cl
 no city or source video shared; ood_test = the only clips of African, Eastern Europe and Latin America. Same numbering.
 benchmark3: a third one (benchmark3_*_clip_ids.txt, 1533 / 219 / 438 / 510), no city or source video shared; id_test =
 "OOD_city" (unseen cities of seen regions), ood_test = "OOD_regions" (the only African and Latin America clips).
+k05 / k20 / k60 / k86 / k86v2: small-data train subsets of benchmark3 (K{05,20,60,86,86v2}_clip_ids.txt, 300 of its 1533
+train clips each, from 9 / 23 / 65 / 90 / 91 cities; k86v2 = a second 90-city draw, 144 clips shared with k86); id_val, id_test and ood_test are benchmark3's, so these runs are validated and tested
+exactly like benchmark3 ones. k05_400 / k20_400 / k60_400 / k80_400: the same with 400 train clips each
+(K05-400_clip_ids.txt etc., 7 / 22 / 65 / 86 cities).
 """
 
 import argparse
@@ -34,6 +38,12 @@ BENCHMARKS = {
     "benchmark3": {s: [int(l) for l in open(os.path.join(CODE, f"benchmark3_{s}_clip_ids.txt")) if l.strip()]
                    for s in ("train", "id_val", "id_test", "ood_test")},
 }
+KSUBSETS = ("k05", "k20", "k60", "k86", "k86v2",  # 300-clip benchmark3 train subsets with 9 / 23 / 65 / 90 / 91 cities
+            "k05_400", "k20_400", "k60_400", "k80_400")  # 400-clip ones (K05-400_clip_ids.txt etc.), 7 / 22 / 65 / 86 cities
+for _k in KSUBSETS:
+    BENCHMARKS[_k] = dict(BENCHMARKS["benchmark3"],
+                          train=[int(l) for l in open(os.path.join(CODE, f"K{_k[1:].replace('_', '-')}_clip_ids.txt")) if l.strip()])
+    assert set(BENCHMARKS[_k]["train"]) <= set(BENCHMARKS["benchmark3"]["train"])
 
 
 def folder(clip):

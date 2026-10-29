@@ -17,7 +17,7 @@ import json
 import os
 import pickle
 
-from utils import get_allframes_bboxes, get_movement_direction
+from utils import get_allframes_bboxes, get_movement_direction, get_movement_direction_2d
 
 SYNTH_DIR = '/home/jmurrugarral/EgoGroups_Synth_train'
 SYNTH_DETAIL_DIR = '/data/paola-shared/jmurrugarral/EgoGroups_Synth_detail_train'
@@ -157,6 +157,7 @@ def build_sft_examples_full(depth_method=DEFAULT_DEPTH_METHOD, require_image=Tru
             'frame_id': target_frame_id,
             'frame_input_data': frame_input_data,
             'personid2bbox': bboxes[-1],
+            'movement_2d': get_movement_direction_2d(bboxes, len(bboxes)),  # 2D box-centre motion, for --variant idsonly --mode full
             'gt_groups': [[int(p) for p in group] for group in gt_groups],
             'image_path': image_path,
         })

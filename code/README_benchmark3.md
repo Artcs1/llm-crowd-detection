@@ -223,3 +223,21 @@ cd ../../GroupTrans && python egotools/prepare_city.py benchmark3       # GroupT
 | DVT3 | `BENCH=benchmark3 GPU=G bash run_egogroups_city.sh` (trains, then tests both) | `TESTSET=EgoGroupsOODCity_Test CK=<ckpt> TAG=<name> bash test_egogroupscity.sh` |
 
 All commands are also in `TRAINING_TESTING_SPECS.txt` section 10 (next to the repos).
+
+### Train subsets (K05 ... K80-400)
+
+Splits `k05`, `k20`, `k60`, `k86`, `k86v2` (300 train clips) and `k05_400`, `k20_400`, `k60_400`, `k80_400` (400 train
+clips: `K05-400_clip_ids.txt` etc., 7 / 22 / 65 / 86 cities) are benchmark3 with only those train clips. They share its
+219 id_val clips and both test sets.
+
+- Ours: `--dataset egogroups-<k>`.
+- Baselines (the 400-clip ones, and any other `egogroups_city.KSUBSETS` key):
+  - Folders: `python ../../VLM-GroupDetection/prepare_egogroups_city.py <k>` and `cd ../../GroupTrans && python
+    egotools/prepare_city.py <k>`, giving `EgoGroupsK05-400_Train` in both repos.
+  - Training:
+
+| method | train (<k> = k05_400, folder name K05-400) | test |
+|---|---|---|
+| DVT3 | `BENCH=<k> GPU=G bash run_egogroups_city.sh` | done by the script on both OOD sets |
+| P-HAR | `EGO_VAL_SPLIT=<k> PAR_WD=1e-3 python train_egogroups.py G` | `EGO_VAL_SPLIT=<k> python test_egogroups.py --split ood_city` / `ood_regions` |
+| GroupTrans | `cd runs/EgoGroupsK05-400_Train && python ../../jrdb_train_ours.py --gpu G --taskname ego_k05_400_traj_with_app --appearance --refresh_ana 1 --scene_visits_per_epoch 1 --num_epoch 200` | from `runs/EgoGroupsOODCity_Test` / `runs/EgoGroupsOODRegions_Test` |

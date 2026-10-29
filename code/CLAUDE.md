@@ -80,7 +80,11 @@ outside the repo and are referenced by absolute paths (`/lp-dev/jmurrugarral/{go
 5. **Fine-tuning** (no DSPy; `trl.SFTTrainer` then `trl.GRPOTrainer`) — details in `README_training.md`.
    - `sft_training_{llm,vlm}_nodspy_merged.py`, `rl_training_{llm,vlm}_nodspy_merged.py`. LLM scripts take
      `--mode single|full` (`full` adds a per-person `movement_direction`); VLM scripts take
-     `--variant p1_visual|idsonly`. GRPO reward = sum of `pairwise_f1_reward`, `affinity_bce_reward`, `ari_reward`,
+     `--variant p1_visual|idsonly` and `--mode single|full`. VLM `full` is the single annotated keyframe plus
+     a per-person `movement_direction` in the text, not a video. p1_visual: from the 3D track. idsonly:
+     `person_id` + `movement_direction` only, from the 2D box-centre motion (`utils.get_movement_direction_2d`,
+     example field `movement_2d`), system prompt `SYSTEM_PROMPT_FULL_IDSONLY`, checkpoints `...-full-idsonly-<dataset>`.
+     It is tested with `p1_visual_only` full (see Key conventions). GRPO reward = sum of `pairwise_f1_reward`, `affinity_bce_reward`, `ari_reward`,
      `partition_validity_reward` (unparseable output → fixed `PARSE_FAILURE_REWARD`). RL starts from the merged SFT
      checkpoint plus a fresh LoRA config (GRPOTrainer rejects a `PeftModel` + new `peft_config`).
    - `max_completion_length` must exceed the largest output (frames can have 70+ people); too small a cap
@@ -118,7 +122,7 @@ One-off data-prep scripts (already run; not part of the normal pipeline): `fix_e
 - `utils.py` — imported wholesale (`from utils import *`) by nearly everything: arg parsers (`parse_args`,
   `parse_args_allframes`, `parse_args_inference_tasks`), DSPy module selection (`get_dspy_cot` / `get_full_dspy_cot`
   keyed by `mode` × `prompt_method`), input building (`get_frame_bboxes`, `get_allframes_bboxes`,
-  `get_movement_direction`), inference (`inference*`, `full_inference*`), saving (`save_frame`, `save_full_frame`,
+  `get_movement_direction`, `get_movement_direction_2d`), inference (`inference*`, `full_inference*`), saving (`save_frame`, `save_full_frame`,
   `save_json`), `draw_bboxes_with_ids`, `compute_group_bbox`.
 - `prompts.py` / `ablation_prompts.py` — all DSPy Signatures/Modules, both imported into `utils.py`.
   `IdentifyGroups*` = text-only LLM; `vlm_IdentifyGroups*Image` / `*Text` = VLM. Suffixes: `_Direction`,
@@ -132,16 +136,28 @@ One-off data-prep scripts (already run; not part of the normal pipeline): `fix_e
 - **`setting`**: `single` = target frame's detections only. `full` = target frame's detections enriched with a
   per-person `movement_direction` (8-way label relative to the data's x/y axes, or `stationary`, from earliest
   pre-target position), plus for `vlm_image` a `video` of frames 1..target (every 3rd frame when target is 22 or 42).
-  For `p1`/`p1_bbox` the video frames are raw; for `p1_visual`/`p1_visual_only` every frame is annotated with the
-  *target* frame's boxes (an approximation).
+  For `p1`/`p1_bbox` the video frames are raw; for `p1_visual`/`p1_visual_only_video` every frame is annotated with
+  the *target* frame's boxes (an approximation). Exception: `p1_visual_only` full sends **no video** (below).
   **Known bug:** `vlm_IdentifyGroups_AllFramesText` still declares nested `all_frames: list[list[dict]]` and a
   required `target_frame`, but `full_inference` calls it with a flat `all_frames=` and no `target_frame`, so
   `full` + `vlm_text` is broken until the signature is updated.
 - **`prompt_method`**: `p1` (3D), `p2` (+direction), `p3` (+transitive), `p4` (both), `p5`/`2D` (pixel centroids),
   `p1_bbox` (bare image + separate `boundingboxes` field), `p1_visual` (boxes/ids drawn on image + xyz),
-  `p1_visual_only` (drawn image + bare `person_ids`, no coordinates), `p1_depthanything` (reuses the `p1`
+  `p1_visual_only` (drawn image, no coordinates), `p1_depthanything` (reuses the `p1`
   signatures), `baseline1`/`baseline2` (predict raw group boxes; `vlm_image` only). `p2`–`p4` are single-setting
   only; `p1_visual*` are `vlm_image` only.
+- **`p1_visual_only` (training `--variant idsonly`), the same as training in both settings:**
+  - single: annotated keyframe + `person_ids` (`vlm_IdentifyGroupsImage_idsonly`; SFT/RL `--mode single`).
+  - full: annotated keyframe + `all_frames` = `[{person_id, movement_direction}]`, with no video and no
+    coordinates. `vlm_IdentifyGroups_MotionImage_idsonly`; SFT/RL `--mode full`.
+    - Movement (`get_movement_direction_2d`): box centre from the person's earliest pre-target frame to the
+      target, `stationary` below 0.2 × target box height (≈ the 3D 0.3 m), same 8-way labels and axes as
+      `get_movement_direction`.
+  - `p1_visual_only_video` (full, zero-shot only; the former `p1_visual_only` full): annotated keyframe +
+    annotated video + bare `person_ids`, no movement (`vlm_IdentifyGroups_AllFramesImage_idsonly`).
+    - The existing zero-shot `results_full/.../p1_visual_only` predictions (EgoGroups_test, base models,
+      before Oct 29 2026) were made this way and keep that folder name.
+    - `--skip_existing` reuses them, so a new full `p1_visual_only` run of those models needs a new folder.
 - **`depth_method`**: `naive_3D_{60,110,160}FOV`, `unidepth_3D`, `detany_3D`, `wilddet_3D` (also `gt_3D` for
   synthetic data). It is forced to `'3D'` when `data['dataset'] == 'JRDB_gold'`.
 - **Results path layout** is hard-coded as path joins in each stage, roughly
@@ -213,6 +229,34 @@ Five train/val/test definitions exist; the env var `EGO_VAL_SPLIT` picks one in 
     GroupTrans) hold id_val out by clip id (DVT3: `DVT_EGO_VAL_CLIPS=219`). MINGLE builds pairs from train + id_val,
     drops every id_val pair from training and validates on `--val_pairs` balanced pairs drawn round-robin from id_val.
     7 train clips and 1 id_val clip have nobody in them (no examples).
+- `k05` / `k20` / `k60` / `k86` / `k86v2` (small-data benchmark3, city diversity): `K{05,20,60,86,86v2}_clip_ids.txt`, 300 of
+  benchmark3's 1533 train clips each, from 9 / 23 / 65 / 90 / 91 cities (7 / 16 / 36 / 46 / 45 countries; k86v2 = a
+  second 90-city draw, 144 clips shared with k86, 1457 SFT train examples, 6 empty clips); lists overlap
+  (e.g. K20&K60 115 clips). `BENCHMARKS[k]` (`egogroups_city.KSUBSETS`) = benchmark3 with only these train clips, same
+  id_val / id_test / ood_test (GT `gt_group_10fps_<k>_*` byte-identical to benchmark3's except train). Our SFT / RL /
+  MINGLE: `--dataset egogroups-k05` etc. (checkpoints `-egogroups-k05`; SFT examples train 1478 / 1496 / 1451 / 1464,
+  val 1080; clips with nobody: 1 / 0 / 7 / 4); test on `EgoGroupsOODCity_Test` / `EgoGroupsOODRegions_Test` as
+  benchmark3. Not wired into the baselines (no `EGO_VAL_SPLIT=k05`).
+- `k05_400` / `k20_400` / `k60_400` / `k80_400` (Oct 29 2026): the same idea with 400 train clips each,
+  `K{05,20,60,80}-400_clip_ids.txt`, 7 / 22 / 65 / 86 cities (6 / 16 / 37 / 43 countries), all in benchmark3 train; same
+  id_val / id_test / ood_test (GT `gt_group_10fps_<k>_*`).
+  - **Validation = benchmark3's id_val (219 clips) in every method**, never part of the train subset. Checkpoint / epoch
+    / threshold selection uses it exactly as for benchmark3. Tests: OOD_city = id_test (438), OOD_regions = ood_test (510).
+    - Ours / MINGLE: `BENCHMARKS[k]` replaces only `train`; the id_val GT is byte-identical to benchmark3's.
+    - DVT3: `scene_split.py` holds out `BENCHMARKS[k]["id_val"]`.
+    - P-HAR: `VAL_CLIPS`.
+    - GroupTrans: `group_test.txt` of the train folder.
+    - `prepare_egogroups_city.py` and `prepare_city.py` assert the id_val equals benchmark3's.
+  - Ours / MINGLE: `--dataset egogroups-k05_400` etc.
+  - Wired into DVT3, P-HAR and GroupTrans via `EGO_VAL_SPLIT=k05_400` (any `egogroups_city.KSUBSETS` key works):
+    - DVT3: `BENCH=k05_400 GPU=G bash run_egogroups_city.sh`. It trains on `VLM-GroupDetection/EgoGroupsK05-400_Train`
+      (`prepare_egogroups_city.py k05_400`: 400 + 219 id_val clips), works in `EgoGroupsK05-400_Train_run`, and tests
+      both OOD sets with tag `EgoGroupsK05-400_ep<N>`.
+    - P-HAR: `EGO_VAL_SPLIT=k05_400 PAR_WD=1e-3 python train_egogroups.py G` (exp `EgoGroups_k05_400_wd1e-3`).
+      Test with the same env and `--split ood_city` / `ood_regions`.
+    - GroupTrans: `python egotools/prepare_city.py k05_400` -> `runs/EgoGroupsK05-400_Train`. Train from that folder
+      (`--taskname ego_k05_400_traj_with_app`, as for benchmark3) and test from `runs/EgoGroupsOODCity_Test` /
+      `_OODRegions_Test`.
   - Code: `egogroups_city.BENCHMARKS['benchmark3']` is the single source of the lists. Baselines: `RTGD/rtgd_data.py`
     (`EGO_VAL_SPLIT == "benchmark3"`, `OOD_SPLITS`; Social-CAD, S3R2 reuse it), `PAR/.../egogroups_par.py`
     (`OOD_SPLITS`), `VLM-GroupDetection/scene_split.py` + `prepare_egogroups_city.py benchmark3` +

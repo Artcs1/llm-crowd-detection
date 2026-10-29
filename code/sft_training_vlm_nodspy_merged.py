@@ -21,7 +21,9 @@ def parse_args():
         '--dataset', type=str,
         choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
                  'egogroups-synth-train', 'egogroups-synth-train-subset',
-                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'egogroups-city', 'egogroups-benchmark3'],
+                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'egogroups-city', 'egogroups-benchmark3', 'egogroups-k05', 'egogroups-k20',
+                 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2',
+                 'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py (JRDB_train_fixed_gold, F1_evaluator/out/gt.pkl); "
              "'egogroups' uses egogroups_data_utils.py (gold_SEKAI_900_3, "
@@ -36,15 +38,16 @@ def parse_args():
              "(egogroups_city.py; clips of EgoGroups_train and EgoGroups_test, no city shared between splits), "
              "train on its 1620 train clips, validate on its 180 val clips; checkpoints '-egogroups-city'. "
              "'egogroups-benchmark3': the same loader on benchmark3 (benchmark3_{train,id_val}_clip_ids.txt, 1533 / 219 "
-             "clips; README_benchmark3.md), checkpoints '-egogroups-benchmark3'."
+             "clips; README_benchmark3.md), checkpoints '-egogroups-benchmark3'. 'egogroups-k05' / -k20 / -k60 / -k86: "
+             "benchmark3 with only the 300 K??_clip_ids.txt train clips (same id_val), checkpoints '-egogroups-k05' etc."
     )
     parser.add_argument(
         '--variant', type=str, choices=['p1_visual', 'idsonly'], default='p1_visual',
         help="'p1_visual' sends the bbox/id-annotated image plus numeric x,y,z coordinates "
              "(matching sft_training_vlm_nodspy.py); 'idsonly' sends only the annotated image "
              "plus a bare person_ids list, no coordinates at all (matching "
-             "sft_training_vlm_nodspy_visualonly.py / prompt_method='p1_visual_only'). Only "
-             "'p1_visual' is supported when --mode full (see --mode)."
+             "sft_training_vlm_nodspy_visualonly.py / prompt_method='p1_visual_only'). With --mode full, "
+             "idsonly sends person_id + movement_direction from the 2D box-centre motion (see --mode)."
     )
     parser.add_argument(
         '--mode', type=str, choices=['single', 'full'], default='single',
@@ -53,8 +56,9 @@ def parse_args():
              "per-person 'movement_direction' label computed from every earlier frame in the "
              "scenario (build_sft_examples_full, matching sft_training_vlm_nodspy_full.py -- "
              "single annotated image + movement_direction as text, NOT a multi-image video like "
-             "sft_training_vlm_nodspy_full_video.py). Only --variant p1_visual is supported in "
-             "full mode -- no idsonly+full prompt exists in this codebase."
+             "sft_training_vlm_nodspy_full_video.py). With --variant idsonly "
+             "the JSON keeps only person_id + movement_direction, computed from the 2D box-centre "
+             "motion (utils.get_movement_direction_2d) -- prompt_method='p1_visual_only' full at test time."
     )
     parser.add_argument(
         '--gpu', type=str, default=None,
@@ -89,6 +93,10 @@ def parse_args():
              "Checkpoints get an extra '-lmmergerlora' suffix (RL --lm_merger_lora loads the SFT model with the same suffix)."
     )
     parser.add_argument(
+        '--no_eval', action='store_true',
+        help="Skip the per-epoch validation pass (the val examples are still held out, and still used for the final "
+             "one-example sanity check); saves ~8 min per epoch on 1080 val examples. Checkpoint names are unchanged.")
+    parser.add_argument(
         '--tag', type=str, default='',
         help="Extra suffix appended to the checkpoint names (after '-lmlora'), e.g. '-fixedloader' to keep a rerun apart from older checkpoints of the same config. RL loads the SFT checkpoint with the same --tag.")
     parser.add_argument(
@@ -102,8 +110,6 @@ def parse_args():
 args = parse_args()
 print(f'dataset: {args.dataset}  variant: {args.variant}  mode: {args.mode}  gpu: {args.gpu or "(default)"}')
 
-if args.mode == 'full' and args.variant == 'idsonly':
-    raise ValueError("--mode full only supports --variant p1_visual (no idsonly+full prompt exists)")
 
 # Must happen before torch is imported (see below) -- avoids the multi-GPU device_map='auto' +
 # Trainer label/hidden-state device-mismatch crash. --gpu overrides the hardcoded default; if
@@ -122,7 +128,8 @@ from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration, Qwen
 from trl import SFTConfig, SFTTrainer
 
 import egogroups_city_data_utils
-CITY_LIKE = {'egogroups-city': 'city', 'egogroups-benchmark3': 'benchmark3'}  # --dataset -> egogroups_city.BENCHMARKS key
+CITY_LIKE = {'egogroups-city': 'city', 'egogroups-benchmark3': 'benchmark3',
+             **{f'egogroups-{k}': k for k in ('k05', 'k20', 'k60', 'k86', 'k86v2', 'k05_400', 'k20_400', 'k60_400', 'k80_400')}}  # --dataset -> egogroups_city.BENCHMARKS key
 import egogroups_data_utils
 import egogroups_synth_train_data_utils
 import egogroups_train_data_utils
@@ -276,17 +283,39 @@ SYSTEM_PROMPT_FULL = (
     "and no other text. All ids should appear at least once."
 )
 
+# --variant idsonly --mode full: SYSTEM_PROMPT_FULL without coordinates; movement_direction comes from the 2D
+# box-centre motion (utils.get_movement_direction_2d), same task text as prompts.py's
+# vlm_IdentifyGroups_MotionImage_idsonly (prompt_method='p1_visual_only', full setting).
+SYSTEM_PROMPT_FULL_IDSONLY = (
+    "Given an image of a single video frame with people annotated by bounding boxes and id labels, "
+    "compute groups of people who are close together. Use only the visual positions of the labeled "
+    "boxes and each person's movement direction to judge proximity -- no numeric coordinates are "
+    "provided. Return only non-empty groups. Do not merge distant people into the same group. Do not "
+    "hallucinate non-existent person_id.\n\n"
+    "You are given an image with each person's bounding box and id label drawn on them, plus "
+    "a JSON array of the people in it. Each is an object with keys 'person_id' and "
+    "'movement_direction' (their net movement direction in the image across the frames leading up "
+    "to this one, or 'stationary').\n"
+    "Respond with ONLY a JSON object of the form {\"groups\": [[person_id, ...], ...]} "
+    "and no other text. All ids should appear at least once."
+)
+
 if args.mode == 'full':
-    SYSTEM_PROMPT = SYSTEM_PROMPT_FULL
+    SYSTEM_PROMPT = SYSTEM_PROMPT_FULL if args.variant == 'p1_visual' else SYSTEM_PROMPT_FULL_IDSONLY
 else:
     SYSTEM_PROMPT = SYSTEM_PROMPT_P1_VISUAL if args.variant == 'p1_visual' else SYSTEM_PROMPT_IDSONLY
 
 
 def build_user_content(example):
     """The only other thing that differs by --variant: p1_visual sends the full detections JSON
-    (numeric x,y,z included), idsonly sends just the bare person_ids list."""
+    (numeric x,y,z included), idsonly sends just the bare person_ids list (full mode: person_id +
+    2D movement_direction)."""
     if args.variant == 'p1_visual':
         return json.dumps(example['frame_input_data'])
+    if args.mode == 'full':
+        return json.dumps([{'person_id': int(d['person_id']),
+                            'movement_direction': example['movement_2d'].get(d['person_id'], 'stationary')}
+                           for d in example['frame_input_data']])
     person_ids = [d['person_id'] for d in example['frame_input_data']]
     return json.dumps(person_ids)
 
@@ -400,7 +429,7 @@ sft_config = SFTConfig(
                        # truncated"). 4096 was still too short for JRDB (~2.3K image tokens + up to ~2.9K
                        # text) and gave NaN losses from batches whose answer was fully truncated.
     logging_steps=10,
-    eval_strategy='epoch',
+    eval_strategy='no' if args.no_eval else 'epoch',
     save_strategy='epoch',
     report_to='none',
 )
@@ -409,7 +438,7 @@ trainer = SFTTrainer(
     model=model,
     args=sft_config,
     train_dataset=train_dataset,
-    eval_dataset=val_dataset,
+    eval_dataset=None if args.no_eval else val_dataset,
     peft_config=lora_config,
     processing_class=processor,
 )

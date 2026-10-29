@@ -42,7 +42,7 @@ def _build(fn, splits, benchmark='city', **kwargs):
         exs, offset = _run_on(folder, fn, **kwargs)
         for e in exs:
             clip = e['scenario_idx'] + offset
-            split = SPLIT_OF[benchmark][clip]
+            split = SPLIT_OF[benchmark].get(clip)  # None: a clip outside the division (k05: the other benchmark3 train clips)
             if split in splits:
                 examples.append(dict(e, scenario_idx=clip - 1, city_split=split))
     return examples

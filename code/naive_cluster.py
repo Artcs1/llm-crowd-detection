@@ -10,10 +10,10 @@ describes in words ("compute all pairwise distances... group if below a threshol
 min_samples > 1 is available as a stricter density knob if pure single-linkage chaining turns out
 to be too permissive.
 
-2D (x,y) distance is the default rather than 3D: depth_method's z-axis (monocular depth) is the
-noisiest estimated coordinate, and group proximity (F-formations) is fundamentally a ground-plane
-phenomenon -- two people at different heights/poses but the same floor position are still a group.
---distance_dims 3 is available for comparison.
+Group proximity (F-formations) is a ground-plane phenomenon. --distance_dims 2 clusters on (x,y), which is the
+ground plane only for JRDB's lidar '3D' (x forward, y left, z up); for camera-frame positions (EgoGroups' detany_3D:
+x right, y down, z = depth) it drops depth and keeps height, close to clustering in the image. --distance_dims xz is
+the ground plane there; --distance_dims 3 uses all three.
 """
 
 import argparse
@@ -42,8 +42,10 @@ def parse_args():
              "reduces single-link chaining but can also emit -1 'noise' labels -- these are "
              "folded into their own singleton groups (matching how ungrouped people are always "
              "treated elsewhere in this pipeline, e.g. compute_detections.py).")
-    parser.add_argument('--distance_dims', type=int, choices=[2, 3], default=2,
-        help="2 (default): cluster on (x,y) only. 3: also use z (depth_method's noisiest axis).")
+    parser.add_argument('--distance_dims', type=str, choices=['2', '3', 'xz'], default='2',
+        help="2 (default): cluster on (x,y) only -- the ground plane for JRDB's lidar '3D' (x forward, y left, z up), but "
+             "(lateral, vertical) for camera-frame positions like EgoGroups' detany_3D (y down, z = depth). "
+             "xz: (x,z), the ground plane of camera-frame positions. 3: (x,y,z).")
     parser.add_argument('--frame_path', type=str, required=True,
         help="Root folder of per-scenario video frame images (only used to build the results "
              "path / optional saved visualization, same convention as batch_fetch_groups.py).")
@@ -61,8 +63,10 @@ def cluster_groups(frame_input_data, threshold, min_samples, distance_dims):
     """frame_input_data: list of {'person_id','x','y','z'} dicts (get_frame_bboxes, prompt_method='p1').
     Returns list[list[person_id]]."""
     person_ids = [det['person_id'] for det in frame_input_data]
-    if distance_dims == 2:
+    if distance_dims == '2':
         coords = np.array([[det['x'], det['y']] for det in frame_input_data])
+    elif distance_dims == 'xz':
+        coords = np.array([[det['x'], det['z']] for det in frame_input_data])
     else:
         coords = np.array([[det['x'], det['y'], det['z']] for det in frame_input_data])
 

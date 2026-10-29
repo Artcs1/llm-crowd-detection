@@ -24,7 +24,9 @@ def parse_args():
         '--dataset', type=str,
         choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
                  'egogroups-synth-train', 'egogroups-synth-train-subset',
-                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'egogroups-city', 'egogroups-benchmark3'],
+                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'egogroups-city', 'egogroups-benchmark3', 'egogroups-k05', 'egogroups-k20',
+                 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2',
+                 'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400'],
         default='jrdb',
         help="'jrdb' uses sft_data_utils.py + the jrdb-trained SFT checkpoint; 'egogroups' uses "
              "egogroups_data_utils.py + the egogroups-trained SFT checkpoint; 'egogroups-train' "
@@ -35,15 +37,16 @@ def parse_args():
              "(geo180 val clips held out) from the '-jrdbego-geo180' SFT checkpoint. 'egogroups-city': the 1620 "
              "egogroups-city train clips (egogroups_city.py, val = its 180 val clips) from the '-egogroups-city' SFT "
              "checkpoint. 'egogroups-benchmark3': the same on benchmark3 (1533 train / 219 id_val clips) from the "
-             "'-egogroups-benchmark3' SFT checkpoint."
+             "'-egogroups-benchmark3' SFT checkpoint. 'egogroups-k05' / -k20 / -k60 / -k86: the 300 K?? train clips / the "
+             "same 219 id_val, from the matching '-egogroups-k05' etc. SFT checkpoint."
     )
     parser.add_argument(
         '--variant', type=str, choices=['p1_visual', 'idsonly'], default='p1_visual',
         help="'p1_visual' sends the bbox/id-annotated image plus numeric x,y,z coordinates "
              "(matching rl_training_vlm_nodspy.py); 'idsonly' sends only the annotated image plus "
              "a bare person_ids list, no coordinates at all (matching "
-             "rl_training_vlm_nodspy_visualonly.py / prompt_method='p1_visual_only'). Only "
-             "'p1_visual' is supported when --mode full (see --mode)."
+             "rl_training_vlm_nodspy_visualonly.py / prompt_method='p1_visual_only'). With --mode full, "
+             "idsonly sends person_id + movement_direction from the 2D box-centre motion (see --mode)."
     )
     parser.add_argument(
         '--mode', type=str, choices=['single', 'full'], default='single',
@@ -52,8 +55,8 @@ def parse_args():
              "per-person 'movement_direction' label computed from every earlier frame in the "
              "scenario (build_sft_examples_full, matching sft_training_vlm_nodspy_full.py's data "
              "source -- single annotated image + movement_direction as text, not a multi-image "
-             "video). Only --variant p1_visual is supported in full mode -- no idsonly+full "
-             "prompt exists in this codebase. Requires the matching full-mode SFT checkpoint "
+             "video). With --variant idsonly the JSON keeps only person_id + movement_direction from "
+             "the 2D box-centre motion (prompt_method='p1_visual_only' full at test time). Requires the matching full-mode SFT checkpoint "
              "(see sft_training_vlm_nodspy_merged.py --mode full) to already exist."
     )
     parser.add_argument(
@@ -150,8 +153,6 @@ def parse_args():
 args = parse_args()
 print(f'dataset: {args.dataset}  variant: {args.variant}  mode: {args.mode}  gpu: {args.gpu or "(default)"}')
 
-if args.mode == 'full' and args.variant == 'idsonly':
-    raise ValueError("--mode full only supports --variant p1_visual (no idsonly+full prompt exists)")
 
 # Must happen before torch is imported (see below). --gpu overrides the hardcoded default; if
 # omitted, an already-exported CUDA_VISIBLE_DEVICES env var wins, else fall back to '4'.
@@ -190,7 +191,8 @@ from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration, Qwen
 from trl import GRPOConfig, GRPOTrainer
 
 import egogroups_city_data_utils
-CITY_LIKE = {'egogroups-city': 'city', 'egogroups-benchmark3': 'benchmark3'}  # --dataset -> egogroups_city.BENCHMARKS key
+CITY_LIKE = {'egogroups-city': 'city', 'egogroups-benchmark3': 'benchmark3',
+             **{f'egogroups-{k}': k for k in ('k05', 'k20', 'k60', 'k86', 'k86v2', 'k05_400', 'k20_400', 'k60_400', 'k80_400')}}  # --dataset -> egogroups_city.BENCHMARKS key
 import egogroups_data_utils
 import egogroups_synth_train_data_utils
 import egogroups_train_data_utils
@@ -312,7 +314,7 @@ if args.dataset in CITY_LIKE:  # the city (benchmark3: id_val) val clips (never 
 
 if args.rl_on_val:
     assert (args.dataset == 'jrdb' and args.jrdb_val_split) or args.dataset in ('jrdbego', *CITY_LIKE), \
-        '--rl_on_val needs --dataset jrdb --jrdb_val_split, jrdbego, egogroups-city or egogroups-benchmark3'
+        '--rl_on_val needs --dataset jrdb --jrdb_val_split, jrdbego, egogroups-city, egogroups-benchmark3 or egogroups-k05/k20/k60/k86'
     train_examples = list(val_examples)  # GRPO on the validation scenes / clips the SFT never saw
 
 print(f'train: {len(train_examples)} examples, val: {len(val_examples)} examples')
@@ -362,17 +364,39 @@ SYSTEM_PROMPT_FULL = (
     "and no other text. All ids should appear at least once."
 )
 
+# --variant idsonly --mode full: SYSTEM_PROMPT_FULL without coordinates; movement_direction comes from the 2D
+# box-centre motion (utils.get_movement_direction_2d), same task text as prompts.py's
+# vlm_IdentifyGroups_MotionImage_idsonly (prompt_method='p1_visual_only', full setting).
+SYSTEM_PROMPT_FULL_IDSONLY = (
+    "Given an image of a single video frame with people annotated by bounding boxes and id labels, "
+    "compute groups of people who are close together. Use only the visual positions of the labeled "
+    "boxes and each person's movement direction to judge proximity -- no numeric coordinates are "
+    "provided. Return only non-empty groups. Do not merge distant people into the same group. Do not "
+    "hallucinate non-existent person_id.\n\n"
+    "You are given an image with each person's bounding box and id label drawn on them, plus "
+    "a JSON array of the people in it. Each is an object with keys 'person_id' and "
+    "'movement_direction' (their net movement direction in the image across the frames leading up "
+    "to this one, or 'stationary').\n"
+    "Respond with ONLY a JSON object of the form {\"groups\": [[person_id, ...], ...]} "
+    "and no other text. All ids should appear at least once."
+)
+
 if args.mode == 'full':
-    SYSTEM_PROMPT = SYSTEM_PROMPT_FULL
+    SYSTEM_PROMPT = SYSTEM_PROMPT_FULL if args.variant == 'p1_visual' else SYSTEM_PROMPT_FULL_IDSONLY
 else:
     SYSTEM_PROMPT = SYSTEM_PROMPT_P1_VISUAL if args.variant == 'p1_visual' else SYSTEM_PROMPT_IDSONLY
 
 
 def build_user_content(example):
     """The only other thing that differs by --variant: p1_visual sends the full detections JSON
-    (numeric x,y,z included), idsonly sends just the bare person_ids list."""
+    (numeric x,y,z included), idsonly sends just the bare person_ids list (full mode: person_id +
+    2D movement_direction)."""
     if args.variant == 'p1_visual':
         return json.dumps(example['frame_input_data'])
+    if args.mode == 'full':
+        return json.dumps([{'person_id': int(d['person_id']),
+                            'movement_direction': example['movement_2d'].get(d['person_id'], 'stationary')}
+                           for d in example['frame_input_data']])
     person_ids = [int(d['person_id']) for d in example['frame_input_data']]
     return json.dumps(person_ids)
 
