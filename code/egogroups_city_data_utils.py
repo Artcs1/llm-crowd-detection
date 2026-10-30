@@ -54,3 +54,31 @@ def build_sft_examples(splits=('train', 'val'), benchmark='city', **kwargs):
 
 def build_sft_examples_full(splits=('train', 'val'), benchmark='city', **kwargs):
     return _build(T.build_sft_examples_full, splits, benchmark, **kwargs)
+
+
+# JRDB-style 3D (joint JRDB + benchmark3 training, --dataset jrdbego-benchmark3): every detany_3D position (camera frame:
+# x right, y down, z forward) rewritten in the JRDB robot frame (x forward, y left, z up), X = z, Y = -x, Z = -y + 0.89,
+# exactly as scripts/make_egogroups_jrdbstyle.py does for the *_jrdbstyle test folders (a rotation plus a shift, so
+# distances are unchanged). Full mode: movement_direction is recomputed from the converted frames (JRDB ground plane).
+JRDB_H0 = 0.89
+
+
+def _to_jrdb(d):
+    return {**d, 'x': round(d['z'], 4), 'y': round(-d['x'], 4), 'z': round(-d['y'] + JRDB_H0, 4)}
+
+
+def to_jrdb_style(example, mode='single'):
+    if mode == 'single':
+        return dict(example, frame_input_data=[_to_jrdb(d) for d in example['frame_input_data']])
+    import json
+    from utils import get_allframes_bboxes, get_movement_direction
+    with open(example['clip_path']) as f:
+        data = json.load(f)
+    for fr in data['frames']:
+        for p in fr['detections']:
+            x, y, z = p['detany_3D']
+            p['detany_3D'] = [z, -x, -y + JRDB_H0]
+    all_frames, _ = get_allframes_bboxes(data, use_direction=False, depth_method='detany_3D', prompt_method='p1')
+    movement = get_movement_direction(all_frames, example['target_frame_id'])
+    return dict(example, frame_input_data=[{**_to_jrdb(d), 'movement_direction': movement.get(d['person_id'], 'stationary')}
+                                           for d in example['frame_input_data']])

@@ -158,6 +158,15 @@ One-off data-prep scripts (already run; not part of the normal pipeline): `fix_e
     - The existing zero-shot `results_full/.../p1_visual_only` predictions (EgoGroups_test, base models,
       before Oct 29 2026) were made this way and keep that folder name.
     - `--skip_existing` reuses them, so a new full `p1_visual_only` run of those models needs a new folder.
+- **`p1_social` (training `--variant p1_social`, checkpoints `-social`):** exactly `p1_visual`'s inputs in both
+  settings (single: annotated keyframe + xyz; full: + annotated video + `movement_direction`); `utils` maps it to
+  `p1_visual` for every input path, only the signature differs (`vlm_IdentifyGroupsImage_social`,
+  `vlm_IdentifyGroups_AllFramesImage_social`).
+  - The task text lives once in `social_prompts.py` (`SOCIAL_TASK` / `SOCIAL_FULL_TASK`; the training system prompts
+    add the JSON-only line): proximity plus orientation, shared motion and interaction from the image, no chaining,
+    each person in exactly one group (GT groups are disjoint and cover every person in JRDB and EgoGroups).
+  - Tests: `PROMPT=p1_social` for `scripts/test_benchmark3_qwen3vl4b.sh` / `test_jrdb_egostyle.sh`; video:
+    `run_zeroshot_egogroupscity.sh <gpu> <model> p1_social <port> <nparts> full`.
 - **`depth_method`**: `naive_3D_{60,110,160}FOV`, `unidepth_3D`, `detany_3D`, `wilddet_3D` (also `gt_3D` for
   synthetic data). It is forced to `'3D'` when `data['dataset'] == 'JRDB_gold'`.
 - **Results path layout** is hard-coded as path joins in each stage, roughly
@@ -264,6 +273,25 @@ Five train/val/test definitions exist; the env var `EGO_VAL_SPLIT` picks one in 
     benchmark3`, `MINGLE/run_mingle.py --dataset oodcity_test|oodregions_test`. Run dirs get `_benchmark3`.
   - id_val's regions are uneven vs train (Anglo 20% of train but 8 val clips; Latin Europe / Nordic Europe 27% / 21%
     of val), so checkpoint selection leans on those regions. Eastern Europe is in-distribution here (OOD in benchmark2).
+- **Joint JRDB + benchmark3 (Oct 30 2026):** train = the 20 JRDB train scenes + the 1533 benchmark3 train clips;
+  **validation = the 7 JRDB val scenes only** (id_val is neither trained on nor scored). The older `jrdbego` (JRDB +
+  EgoGroups_train minus geo180, validated on both) is unchanged.
+  - Ours: `--dataset jrdbego-benchmark3` (SFT and RL, checkpoints `-jrdbego-benchmark3`). The EgoGroups 3D is
+    rewritten in memory in the JRDB robot frame (`egogroups_city_data_utils.to_jrdb_style`: X = z, Y = -x,
+    Z = -y + 0.89, exactly `scripts/make_egogroups_jrdbstyle.py`; full mode recomputes `movement_direction` from the
+    converted track). Verified identical to the `_jrdbstyle` test files on 2131 OOD_city keyframes. So test JRDB on
+    native `JRDB_fixed_gold` (`DATA=JRDB_fixed_gold bash scripts/test_jrdb_egostyle.sh`) and EgoGroups on the
+    `_jrdbstyle` folders (`JRDBSTYLE=1 bash scripts/test_benchmark3_qwen3vl4b.sh`). Only ours takes 3D input; the
+    baselines use 2D boxes / crops / depth images with per-dataset frame sizes.
+  - Data: `JRDB_train_fixed_gold` (holds the 7 val scenes too), `EgoGroups_train` + `EgoGroups_test` (`jsons_step4`,
+    `videos_frames`). `egogroups_train_data_utils.EGOTRAIN_DIR` falls back to `../../EgoGroups_train` (other servers).
+  - MINGLE: `--dataset jrdbego-benchmark3`; all `--val_pairs` come from JRDB val.
+  - RTGD / SHGD / Social-CAD: `EGO_VAL_SPLIT=benchmark3` + `--data jrdbego` -> `runs/jrdbego_benchmark3`
+    (`rtgd_data.JOINT_VAL = ("jrdb",)`). P-HAR: `EGO_VAL_SPLIT=benchmark3 python train_jrdbego.py G`.
+    GroupTrans: `EGO_VAL_SPLIT=benchmark3 python egotools/prepare_joint.py` -> `runs/jrdbego_benchmark3` (built).
+    DVT3: `EGO_VAL_SPLIT=benchmark3 GPU=G bash run_jrdbego_train.sh` (`JRDBEgo_run_benchmark3`, built; **known issue**:
+    30,547 of its 87,780 JRDB crop paths name a different label suffix than the file on disk, from
+    `make_dataset_jrdb_train.py`'s two passes; fix before training).
 - Known issue (not fixed): `JRDB_eval.py`'s `"EgoGroups_test" in detections` tests the lines of the open detection file,
   not its path, so it is never true and per-region / per-density AP for EgoGroups_test reads clip metadata from
   `/lp-dev/jmurrugarral/gold_SEKAI_900_3/`.

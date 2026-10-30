@@ -264,3 +264,30 @@ class RecognizeGroupHugging(dspy.Signature):
     output: bool = dspy.OutputField(desc="True or False, answer if they are hugging or holding each other.")
 
 
+
+
+# p1_social (social_prompts.py): p1_visual's inputs, with a task that also asks for orientation, shared motion and
+# interaction from the image and no chaining; the instructions are the exact text of the SFT/RL --variant p1_social
+# system prompts (minus their JSON-format line, which dspy supplies).
+from social_prompts import SOCIAL_FULL_TASK, SOCIAL_TASK  # noqa: E402
+
+
+class vlm_IdentifyGroupsImage_social(dspy.Signature):
+    """(instructions: social_prompts.SOCIAL_TASK)"""
+    image: dspy.Image = dspy.InputField(desc="Image with bounding boxes and id labels drawn on each person")
+    detections: list[dict] = dspy.InputField(desc="List of people, where each dictionary has keys: 'person_id', 'x', 'y', 'z'.")
+    groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids of people who are together. Each person_id appears in exactly one group.")
+
+
+vlm_IdentifyGroupsImage_social = vlm_IdentifyGroupsImage_social.with_instructions(SOCIAL_TASK)
+
+
+class vlm_IdentifyGroups_AllFramesImage_social(dspy.Signature):
+    """(instructions: social_prompts.SOCIAL_FULL_TASK)"""
+    image: dspy.Image = dspy.InputField(desc="Image of the target frame with bounding boxes and id labels drawn on each person")
+    video: list[dspy.Image] = dspy.InputField(desc="Frames 1 through the target frame (subsampled for long sequences), with the same boxes and labels, giving temporal context")
+    all_frames: list[dict] = dspy.InputField(desc="List of people in the target frame, where each dictionary has keys: 'person_id', 'x', 'y', 'z', and 'movement_direction' (their net movement direction across the frames leading up to this one, or 'stationary').")
+    groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids of people who are together in the target frame. Each person_id appears in exactly one group.")
+
+
+vlm_IdentifyGroups_AllFramesImage_social = vlm_IdentifyGroups_AllFramesImage_social.with_instructions(SOCIAL_FULL_TASK)

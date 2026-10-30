@@ -45,6 +45,8 @@ def extract_model_info(name):
         method = '+ visual-only'
     elif '_p1_visual' in name:
         method = '+ visual'
+    elif '_p1_social' in name:
+        method = '+ social'
     elif '_p1' in name:
         method = '+DATA'
     elif 'baseline2' in name:

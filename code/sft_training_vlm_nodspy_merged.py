@@ -21,7 +21,7 @@ def parse_args():
         '--dataset', type=str,
         choices=['jrdb', 'egogroups', 'egogroups-subset', 'egogroups-train', 'egogroups-train-subset',
                  'egogroups-synth-train', 'egogroups-synth-train-subset',
-                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'egogroups-city', 'egogroups-benchmark3', 'egogroups-k05', 'egogroups-k20',
+                 'egogroups-synth-detail-train', 'egogroups-synth-detail-train-subset', 'jrdbego', 'jrdbego-benchmark3', 'egogroups-city', 'egogroups-benchmark3', 'egogroups-k05', 'egogroups-k20',
                  'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2',
                  'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400'],
         default='jrdb',
@@ -34,7 +34,9 @@ def parse_args():
              "non-singleton groups), on top of the empty-groups filter that always applies. 'jrdbego': JRDB "
              "train (20 scenes) + EgoGroups_train (the clips outside the baselines' geo180 val split), plain union; "
              "validation on the 7 JRDB val scenes and the 180 geo180 clips, reported separately (eval_jrdb_loss, "
-             "eval_ego_loss); checkpoints '-jrdbego-geo180'. 'egogroups-city': the egogroups-city split "
+             "eval_ego_loss); checkpoints '-jrdbego-geo180'. 'jrdbego-benchmark3': JRDB train + benchmark3 train with the "
+             "EgoGroups 3D in the JRDB robot frame (egogroups_city_data_utils.to_jrdb_style), validation on the 7 JRDB val "
+             "scenes only (id_val unused); checkpoints '-jrdbego-benchmark3'. 'egogroups-city': the egogroups-city split "
              "(egogroups_city.py; clips of EgoGroups_train and EgoGroups_test, no city shared between splits), "
              "train on its 1620 train clips, validate on its 180 val clips; checkpoints '-egogroups-city'. "
              "'egogroups-benchmark3': the same loader on benchmark3 (benchmark3_{train,id_val}_clip_ids.txt, 1533 / 219 "
@@ -42,12 +44,14 @@ def parse_args():
              "benchmark3 with only the 300 K??_clip_ids.txt train clips (same id_val), checkpoints '-egogroups-k05' etc."
     )
     parser.add_argument(
-        '--variant', type=str, choices=['p1_visual', 'idsonly'], default='p1_visual',
+        '--variant', type=str, choices=['p1_visual', 'p1_social', 'idsonly'], default='p1_visual',
         help="'p1_visual' sends the bbox/id-annotated image plus numeric x,y,z coordinates "
              "(matching sft_training_vlm_nodspy.py); 'idsonly' sends only the annotated image "
              "plus a bare person_ids list, no coordinates at all (matching "
              "sft_training_vlm_nodspy_visualonly.py / prompt_method='p1_visual_only'). With --mode full, "
-             "idsonly sends person_id + movement_direction from the 2D box-centre motion (see --mode)."
+             "idsonly sends person_id + movement_direction from the 2D box-centre motion (see --mode). "
+             "'p1_social': p1_visual's inputs with the social_prompts.py system prompt (orientation, shared motion "
+             "and interaction from the image, no chaining; prompt_method='p1_social' at test time); checkpoints '-social'."
     )
     parser.add_argument(
         '--mode', type=str, choices=['single', 'full'], default='single',
@@ -141,7 +145,7 @@ import sft_data_utils
 # '-full' before everything else, matching sft_training_vlm_nodspy_full.py's own DATASET_SUFFIX
 # convention ('-full' or '-full-<dataset>').
 mode_suffix = '-full' if args.mode == 'full' else ''
-variant_infix = '-idsonly' if args.variant == 'idsonly' else ''
+variant_infix = {'idsonly': '-idsonly', 'p1_social': '-social'}.get(args.variant, '')
 dataset_suffix = f'-{args.dataset}' if args.dataset != 'jrdb' else ''
 if args.dataset == 'jrdb' and args.jrdb_val_split:
     dataset_suffix = '-jrdbtrain'
@@ -177,6 +181,18 @@ elif args.dataset == 'jrdbego':
     examples = [dict(e, source='jrdb') for e in jrdb_build(require_image=True)]
     examples += [dict(e, source='ego', scenario_idx=e['scenario_idx'] + JOINT_EGO_OFFSET)
                  for e in ego_build(require_image=True, exclude_all_singleton=False)]
+elif args.dataset == 'jrdbego-benchmark3':
+    # JRDB train (native JRDB 3D) + benchmark3 train, the EgoGroups 3D rewritten in the JRDB robot frame
+    # (egogroups_city_data_utils.to_jrdb_style), so JRDB test runs on JRDB_fixed_gold and the EgoGroups tests on the
+    # *_jrdbstyle folders; id_val is not loaded; scenario ids shifted past JRDB's as in jrdbego
+    jrdb_build = sft_data_utils.build_sft_examples if args.mode == 'single' else sft_data_utils.build_sft_examples_full
+    ego_build = (egogroups_city_data_utils.build_sft_examples if args.mode == 'single'
+                 else egogroups_city_data_utils.build_sft_examples_full)
+    JOINT_EGO_OFFSET = 10000
+    examples = [dict(e, source='jrdb') for e in jrdb_build(require_image=True)]
+    examples += [dict(egogroups_city_data_utils.to_jrdb_style(e, args.mode), source='ego',
+                      scenario_idx=e['scenario_idx'] + JOINT_EGO_OFFSET)
+                 for e in ego_build(splits=('train',), benchmark='benchmark3', require_image=True, exclude_all_singleton=False)]
 elif args.dataset in CITY_LIKE:
     # city train + val clips of both EgoGroups folders (scenario_idx = clip - 1); the city test clips are never loaded
     build_examples = (egogroups_city_data_utils.build_sft_examples if args.mode == 'single'
@@ -214,6 +230,13 @@ if args.dataset in ('egogroups-train', 'egogroups-train-subset') and args.ego_va
     val_scenarios = egogroups_train_data_utils.VAL_SCENARIOS
     train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
     val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+
+if args.dataset == 'jrdbego-benchmark3':  # validation on the 7 JRDB val scenes only (never trained on)
+    val_scenarios = {e['scenario_idx'] for e in examples if e['source'] == 'jrdb' and e['sequence_name'] in sft_data_utils.JRDB_VAL_SCENES}
+    train_examples = [e for e in examples if e['scenario_idx'] not in val_scenarios]
+    val_examples = [e for e in examples if e['scenario_idx'] in val_scenarios]
+    print(f"train: JRDB {sum(e['source'] == 'jrdb' for e in train_examples)}, EgoGroups {sum(e['source'] == 'ego' for e in train_examples)}; "
+          f"val: JRDB {len(val_examples)}")
 
 if args.dataset in CITY_LIKE:  # the city (benchmark3: id_val) val clips (never trained on)
     val_scenarios = {e['scenario_idx'] for e in examples if e['city_split'] == 'val'}
@@ -300,17 +323,19 @@ SYSTEM_PROMPT_FULL_IDSONLY = (
     "and no other text. All ids should appear at least once."
 )
 
+from social_prompts import SYSTEM_PROMPT_SOCIAL, SYSTEM_PROMPT_SOCIAL_FULL  # --variant p1_social (same text as prompt_method p1_social)
+
 if args.mode == 'full':
-    SYSTEM_PROMPT = SYSTEM_PROMPT_FULL if args.variant == 'p1_visual' else SYSTEM_PROMPT_FULL_IDSONLY
+    SYSTEM_PROMPT = {'p1_visual': SYSTEM_PROMPT_FULL, 'p1_social': SYSTEM_PROMPT_SOCIAL_FULL}.get(args.variant, SYSTEM_PROMPT_FULL_IDSONLY)
 else:
-    SYSTEM_PROMPT = SYSTEM_PROMPT_P1_VISUAL if args.variant == 'p1_visual' else SYSTEM_PROMPT_IDSONLY
+    SYSTEM_PROMPT = {'p1_visual': SYSTEM_PROMPT_P1_VISUAL, 'p1_social': SYSTEM_PROMPT_SOCIAL}.get(args.variant, SYSTEM_PROMPT_IDSONLY)
 
 
 def build_user_content(example):
     """The only other thing that differs by --variant: p1_visual sends the full detections JSON
     (numeric x,y,z included), idsonly sends just the bare person_ids list (full mode: person_id +
-    2D movement_direction)."""
-    if args.variant == 'p1_visual':
+    2D movement_direction). p1_social sends the same as p1_visual."""
+    if args.variant in ('p1_visual', 'p1_social'):
         return json.dumps(example['frame_input_data'])
     if args.mode == 'full':
         return json.dumps([{'person_id': int(d['person_id']),

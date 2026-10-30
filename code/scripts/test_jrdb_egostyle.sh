@@ -13,12 +13,13 @@ source ~/anaconda3/etc/profile.d/conda.sh
 conda activate ${ENV:-py10-dspy}
 cd "$(dirname "$0")/.."
 export VLLM_USE_FLASHINFER_SAMPLER=0
-GPU=${GPU:-0} PORT=${PORT:-8401} NPARTS=${NPARTS:-32} PROMPT=p1_visual
+GPU=${GPU:-0} PORT=${PORT:-8401} NPARTS=${NPARTS:-32} PROMPT=${PROMPT:-p1_visual}  # PROMPT=p1_social for --variant p1_social models
 MODEL=${MODEL:?set MODEL to the merged checkpoint dir}
 NAME=${NAME:?set NAME to a served name with one "/", e.g. Qwen/Qwen3-VL-4B-Instruct-SFT-Benchmark3}
 SHORT=${NAME#*/}
-DATA=JRDB_fixed_gold_egostyle
-L=sft_output/logs/jrdb_egostyle_test/$SHORT
+# DATA=JRDB_fixed_gold: native JRDB 3D, for models trained in the JRDB frame (e.g. --dataset jrdbego-benchmark3)
+DATA=${DATA:-JRDB_fixed_gold_egostyle}
+L=sft_output/logs/jrdb_egostyle_test/$SHORT$([ "$DATA" != JRDB_fixed_gold_egostyle ] && echo "_$DATA")
 mkdir -p "$(dirname "$L")"
 [ "$(ls ../../$DATA/jsons_gold | wc -l)" = 1829 ] || { echo "../../$DATA/jsons_gold must hold 1829 files"; exit 1; }
 

@@ -37,7 +37,7 @@ def parse_args():
                              "fine-tuned from (HF model card + config.json: Qwen2VLForConditionalGeneration); "
                              "'qwen2.5-vl' is the other base the paper compares. Also sets the checkpoint "
                              "name prefix (qwen2-vl-7b-... / qwen2.5-vl-7b-...).")
-    parser.add_argument('--dataset', type=str, choices=['egogroups', 'jrdb', 'jrdbego', 'egogroups-city', 'egogroups-benchmark3', 'egogroups-k05',
+    parser.add_argument('--dataset', type=str, choices=['egogroups', 'jrdb', 'jrdbego', 'jrdbego-benchmark3', 'egogroups-city', 'egogroups-benchmark3', 'egogroups-k05',
                                                                   'egogroups-k20', 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2',
                                                                   'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400'],
                         default='egogroups',
@@ -47,7 +47,9 @@ def parse_args():
                              "are named ...-jrdb-train... instead of ...-egogroups-train... jrdbego: both training sets "
                              "(plain union of the two pair sets, each built and cached as for its own dataset); --val_pairs "
                              "is split in half between the JRDB val scenes and the EgoGroups val clips, so the validation "
-                             "loss weighs the two equally; checkpoints ...-jrdbego-train...-geo180... egogroups-city: the "
+                             "loss weighs the two equally; checkpoints ...-jrdbego-train...-geo180... jrdbego-benchmark3: JRDB train + "
+                             "benchmark3 train pairs; --val_pairs all from the 7 JRDB val scenes (id_val is neither trained "
+                             "on nor validated on); checkpoints ...-jrdbego-benchmark3-train... egogroups-city: the "
                              "egogroups-city split (egogroups_city.py; clips of both EgoGroups folders, no city shared "
                              "between splits), train pairs of its 1620 train clips, validation from its 180 val clips; "
                              "checkpoints ...-egogroups-city-train... egogroups-benchmark3: the same on benchmark3 "
@@ -173,17 +175,19 @@ import mingle_train_data_utils
 SOURCE_UTILS = {'jrdb': mingle_jrdb_train_data_utils, 'egogroups': mingle_train_data_utils,
                 'egogroups-city': mingle_city_data_utils, 'egogroups-benchmark3': mingle_city_data_utils,
                 **{d: mingle_city_data_utils for d in ('egogroups-k05', 'egogroups-k20', 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2', 'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400')}}
-if args.dataset in ('egogroups-benchmark3', *('egogroups-k05', 'egogroups-k20', 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2', 'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400')):  # same builder, that division's train + id_val clips
+if args.dataset in ('egogroups-benchmark3', 'jrdbego-benchmark3', *('egogroups-k05', 'egogroups-k20', 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2', 'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400')):  # same builder, that division's train + id_val clips
     mingle_city_data_utils.use_benchmark(args.dataset.split('-')[1])
-SOURCES = ['jrdb', 'egogroups'] if args.dataset == 'jrdbego' else [args.dataset]
+SOURCES = {'jrdbego': ['jrdb', 'egogroups'], 'jrdbego-benchmark3': ['jrdb', 'egogroups-benchmark3']}.get(args.dataset, [args.dataset])
+VAL_SOURCES = ['jrdb'] if args.dataset == 'jrdbego-benchmark3' else SOURCES  # sources the --val_pairs come from
 data_utils = SOURCE_UTILS[SOURCES[0]]  # DATA_ROOT is the same for both
-if args.neg_per_pos_jrdb is not None and args.dataset != 'jrdbego':
+if args.neg_per_pos_jrdb is not None and args.dataset not in ('jrdbego', 'jrdbego-benchmark3'):
     raise ValueError('--neg_per_pos_jrdb is for --dataset jrdbego (use --neg_per_pos for a single dataset)')
 
 
 def neg_per_pos(source):
     return args.neg_per_pos_jrdb if source == 'jrdb' and args.neg_per_pos_jrdb is not None else args.neg_per_pos
 TRAIN_TAG = {'jrdb': 'jrdb-train', 'egogroups': 'egogroups-train', 'jrdbego': 'jrdbego-train',
+             'jrdbego-benchmark3': 'jrdbego-benchmark3-train',
              'egogroups-city': 'egogroups-city-train', 'egogroups-benchmark3': 'egogroups-benchmark3-train',
              **{d: f'{d}-train' for d in ('egogroups-k05', 'egogroups-k20', 'egogroups-k60', 'egogroups-k86', 'egogroups-k86v2', 'egogroups-k05_400', 'egogroups-k20_400', 'egogroups-k60_400', 'egogroups-k80_400')}}[args.dataset]  # checkpoint-name part
 
@@ -338,7 +342,8 @@ for source in SOURCES:
         _cached = json.load(f)
     src_examples, src_records = _cached['examples'], _cached['records']
     val_scenarios = SOURCE_UTILS[source].VAL_SCENARIOS
-    held_out, val_idx = pick_val(src_examples, val_scenarios, args.val_pairs // len(SOURCES))
+    held_out, val_idx = pick_val(src_examples, val_scenarios,
+                                 args.val_pairs // len(VAL_SOURCES) if source in VAL_SOURCES else 0)
     train_records += [r for e, r in zip(src_examples, src_records) if e['scenario_idx'] not in val_scenarios]
     val_records += [src_records[i] for i in sorted(val_idx)]
     val_examples += [src_examples[i] for i in sorted(val_idx)]
