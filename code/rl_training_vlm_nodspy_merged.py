@@ -124,6 +124,20 @@ def parse_args():
              "defaults to True). Checkpoints get an extra '-nobiaskl' suffix."
     )
     parser.add_argument(
+        '--rewards', type=str, default='validity,bce,f1,ari',
+        help="Reward ablation: comma-separated subset of validity, bce (affinity BCE), f1 (pairwise F1), ari. Each kept "
+             "reward keeps its weight of the full run (REWARD_WEIGHTS: f1 0.4, bce 0.15, ari 0.3, validity 0.15); GRPO "
+             "normalizes the summed reward per group (scale_rewards='group'), so only the weight ratios matter and "
+             "dropping a reward leaves the others' relative influence unchanged. Anything but all four adds "
+             "'-rw-<kept, in the order v, bce, f1, ari>' to the checkpoint dirs, e.g. '-rw-v-bce-f1'."
+    )
+    parser.add_argument(
+        '--reward_weights', type=str, default='',
+        help="Override weights of kept rewards, e.g. 'f1=0.5,ari=0.5' (names as in --rewards; the others keep their "
+             "REWARD_WEIGHTS value). Adds '-w-<code>x<weight>...' (all kept rewards, v/bce/f1/ari order) to the "
+             "checkpoint dirs, e.g. '-rw-f1-ari-w-f1x0.5-arix0.5'. Empty = the full-run weights, names unchanged."
+    )
+    parser.add_argument(
         '--ego_val_split', action='store_true',
         help="Only with --dataset egogroups-train[-subset]: hold out the 180 EgoGroups_train val clips shared with the "
              "baselines (egogroups_train_data_utils.VAL_SCENARIOS) and train on the other 1620. Checkpoints get a "
@@ -243,6 +257,20 @@ if args.no_bias_kl:
     CKPT_SUFFIX += '-nobiaskl'
 if (args.num_generations, args.prompts_per_step) != (4, 2):  # 4 x 2 (the old default) keeps the original unsuffixed names
     CKPT_SUFFIX += f'-g{args.num_generations}p{args.prompts_per_step}'
+REWARD_ORDER = ['validity', 'bce', 'f1', 'ari']  # --rewards names, in checkpoint-suffix order
+REWARD_CODE = {'validity': 'v', 'bce': 'bce', 'f1': 'f1', 'ari': 'ari'}
+REWARDS = {r.strip() for r in args.rewards.split(',') if r.strip()}
+if not REWARDS or REWARDS - set(REWARD_ORDER):
+    raise ValueError(f"--rewards must be a non-empty subset of {REWARD_ORDER}, got {args.rewards!r}")
+if REWARDS != set(REWARD_ORDER):  # the full four-reward run keeps the original names
+    CKPT_SUFFIX += '-rw-' + '-'.join(REWARD_CODE[r] for r in REWARD_ORDER if r in REWARDS)
+DEFAULT_WEIGHTS = {'f1': 0.4, 'bce': 0.15, 'ari': 0.3, 'validity': 0.15}  # the full run's weights (REWARD_WEIGHTS below)
+WEIGHT_OVERRIDE = {k.strip(): float(v) for k, v in (x.split('=') for x in args.reward_weights.split(',') if x.strip())}
+if set(WEIGHT_OVERRIDE) - REWARDS:
+    raise ValueError(f"--reward_weights names {sorted(set(WEIGHT_OVERRIDE) - REWARDS)} not in --rewards {sorted(REWARDS)}")
+if WEIGHT_OVERRIDE:
+    CKPT_SUFFIX += '-w-' + '-'.join(f'{REWARD_CODE[r]}x{WEIGHT_OVERRIDE.get(r, DEFAULT_WEIGHTS[r]):g}'
+                                    for r in REWARD_ORDER if r in REWARDS)
 if args.init_model:  # extra epochs count up from the init's own -plusNep, so a -plus1ep init gives -plus2ep (never overwrites it)
     import re
     _prev = re.search(r'-plus(\d+)ep$', args.init_model.rstrip('/'))
@@ -670,6 +698,13 @@ class SaveMergedEachEpochCallback(TrainerCallback):
         print(f'Epoch {epoch_num} merged checkpoint saved to {epoch_dir}')
 
 
+# (--rewards name, function, weight) of the full run, in the trainer's original order; --rewards keeps a subset,
+# each at its full-run weight
+REWARD_WEIGHTS = [('f1', pairwise_f1_reward, 0.4), ('bce', affinity_bce_reward, 0.15), ('ari', ari_reward, 0.3),
+                  ('validity', partition_validity_reward, 0.15)]
+ACTIVE_REWARDS = [(f, WEIGHT_OVERRIDE.get(name, w)) for name, f, w in REWARD_WEIGHTS if name in REWARDS]
+print('GRPO rewards (weight): ' + ', '.join(f'{f.__name__} ({w})' for f, w in ACTIVE_REWARDS))
+
 grpo_config_b = GRPOConfig(
     output_dir=f'sft_output/{CKPT_PREFIX}-groups-grpo-lora-fourlosses{CKPT_SUFFIX}',
     use_vllm=True,
@@ -688,7 +723,7 @@ grpo_config_b = GRPOConfig(
     max_completion_length=4096,
     beta=0.01,
     learning_rate=1e-5,
-    reward_weights=[0.4, 0.15, 0.3, 0.15],  # pairwise_f1, affinity_bce, ari, validity
+    reward_weights=[w for _, w in ACTIVE_REWARDS],  # full run: pairwise_f1 0.4, affinity_bce 0.15, ari 0.3, validity 0.15
     **({'use_bias_correction_kl': False} if args.no_bias_kl else {}),
     logging_steps=1,
     num_train_epochs=args.epochs,  # default 3; --epochs overrides. See CKPT_SUFFIX above for how
@@ -699,7 +734,7 @@ grpo_config_b = GRPOConfig(
 
 trainer_b = GRPOTrainer(
     model=model_b,
-    reward_funcs=[pairwise_f1_reward, affinity_bce_reward, ari_reward, partition_validity_reward],
+    reward_funcs=[f for f, _ in ACTIVE_REWARDS],
     args=grpo_config_b,
     train_dataset=train_dataset,
     peft_config=lora_config,
