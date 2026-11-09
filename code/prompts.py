@@ -291,3 +291,29 @@ class vlm_IdentifyGroups_AllFramesImage_social(dspy.Signature):
 
 
 vlm_IdentifyGroups_AllFramesImage_social = vlm_IdentifyGroups_AllFramesImage_social.with_instructions(SOCIAL_FULL_TASK)
+
+
+# p1_social_only (social_prompts.SOCIAL_IDSONLY_*): the p1_social task without 3D positions, on p1_visual_only's inputs
+# (single: annotated image + person_ids; full: annotated image + person_id / movement_direction from the 2D box motion,
+# no video, the same input as vlm_IdentifyGroups_MotionImage_idsonly).
+from social_prompts import SOCIAL_IDSONLY_FULL_TASK, SOCIAL_IDSONLY_TASK  # noqa: E402
+
+
+class vlm_IdentifyGroupsImage_social_idsonly(dspy.Signature):
+    """(instructions: social_prompts.SOCIAL_IDSONLY_TASK)"""
+    image: dspy.Image = dspy.InputField(desc="Image with bounding boxes and id labels drawn on each person")
+    person_ids: list[int] = dspy.InputField(desc="List of person_ids visible in the image")
+    groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids of people who are together. Each person_id appears in exactly one group.")
+
+
+vlm_IdentifyGroupsImage_social_idsonly = vlm_IdentifyGroupsImage_social_idsonly.with_instructions(SOCIAL_IDSONLY_TASK)
+
+
+class vlm_IdentifyGroups_MotionImage_social_idsonly(dspy.Signature):
+    """(instructions: social_prompts.SOCIAL_IDSONLY_FULL_TASK)"""
+    image: dspy.Image = dspy.InputField(desc="Image of the target frame with bounding boxes and id labels drawn on each person")
+    all_frames: list[dict] = dspy.InputField(desc="List of people in the target frame, where each dictionary has keys: 'person_id' and 'movement_direction' (their net movement direction in the image across the frames leading up to this one, or 'stationary').")
+    groups: list[list[int]] = dspy.OutputField(desc="A list of groups, where each group is a list of person_ids of people who are together in the target frame. Each person_id appears in exactly one group.")
+
+
+vlm_IdentifyGroups_MotionImage_social_idsonly = vlm_IdentifyGroups_MotionImage_social_idsonly.with_instructions(SOCIAL_IDSONLY_FULL_TASK)

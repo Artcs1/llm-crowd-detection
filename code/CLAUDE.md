@@ -167,6 +167,11 @@ One-off data-prep scripts (already run; not part of the normal pipeline): `fix_e
     each person in exactly one group (GT groups are disjoint and cover every person in JRDB and EgoGroups).
   - Tests: `PROMPT=p1_social` for `scripts/test_benchmark3_qwen3vl4b.sh` / `test_jrdb_egostyle.sh`; video:
     `run_zeroshot_egogroupscity.sh <gpu> <model> p1_social <port> <nparts> full`.
+- **`p1_social_only`** (zero-shot only; no training variant yet): the p1_social task without 3D positions, on
+  `p1_visual_only`'s inputs (single: annotated keyframe + `person_ids`; full: annotated keyframe + `person_id` /
+  `movement_direction` from the 2D box motion, no video). Proximity is judged from box size / foot height in the image.
+  Text: `social_prompts.SOCIAL_IDSONLY_{TASK,FULL_TASK}` (+ `SYSTEM_PROMPT_SOCIAL_IDSONLY*`, not wired into SFT / RL);
+  signatures `vlm_IdentifyGroupsImage_social_idsonly`, `vlm_IdentifyGroups_MotionImage_social_idsonly`.
 - **`depth_method`**: `naive_3D_{60,110,160}FOV`, `unidepth_3D`, `detany_3D`, `wilddet_3D` (also `gt_3D` for
   synthetic data). It is forced to `'3D'` when `data['dataset'] == 'JRDB_gold'`.
 - **Results path layout** is hard-coded as path joins in each stage, roughly

@@ -12,6 +12,7 @@ from prompts import IdentifyGroups
 
 from prompts import vlm_GroupsQAonlyImage, vlm_IdentifyGroupsImage, vlm_IdentifyGroupsImage_idsonly, baseline2
 from prompts import vlm_IdentifyGroupsImage_social, vlm_IdentifyGroups_AllFramesImage_social
+from prompts import vlm_IdentifyGroupsImage_social_idsonly, vlm_IdentifyGroups_MotionImage_social_idsonly
 
 from prompts import vlm_IdentifyGroupsText
 
@@ -123,6 +124,8 @@ def get_movement_direction_2d(bboxes, target_frame, stationary_frac=0.2):
 def full_inference(dspy_module, input_text, target_frame, mode='llm', frame_path='', prompt_method='p1'):
     if prompt_method == 'p1_social':  # same inputs as p1_visual; only the dspy signature differs (get_*dspy_cot)
         prompt_method = 'p1_visual'
+    elif prompt_method == 'p1_social_only':  # p1_social without 3D: p1_visual_only's inputs
+        prompt_method = 'p1_visual_only'
     is_error = False
     try:
         is_bbox_shape = prompt_method in ('p1_bbox', 'p1_visual', 'p1_visual_only', 'p1_visual_only_video')
@@ -230,6 +233,8 @@ def draw_bboxes_with_ids(image_path, boundingboxes):
 def inference(dspy_module, input_text, mode='llm', image_path='optional', prompt='p1'):
     if prompt == 'p1_social':  # same inputs as p1_visual; only the dspy signature differs (get_dspy_cot)
         prompt = 'p1_visual'
+    elif prompt == 'p1_social_only':  # p1_social without 3D: p1_visual_only's inputs
+        prompt = 'p1_visual_only'
     is_error = False
     try:
         if prompt == 'p1_bbox':
@@ -314,6 +319,8 @@ def get_dspy_cot(mode, prompt_method):
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsImage)
         elif prompt_method == 'p1_social':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsImage_social)
+        elif prompt_method == 'p1_social_only':
+            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsImage_social_idsonly)
         elif prompt_method == 'p1_visual_only':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroupsImage_idsonly)
         elif prompt_method == 'p2':
@@ -373,6 +380,8 @@ def get_full_dspy_cot(mode, prompt_method):
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_AllFramesImage)
         elif prompt_method == 'p1_social':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_AllFramesImage_social)
+        elif prompt_method == 'p1_social_only':
+            dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_MotionImage_social_idsonly)
         elif prompt_method == 'p1_visual_only':
             dspy_cot = dspy.ChainOfThought(vlm_IdentifyGroups_MotionImage_idsonly)
         elif prompt_method == 'p1_visual_only_video':
@@ -383,6 +392,8 @@ def get_full_dspy_cot(mode, prompt_method):
 def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
     if prompt_method == 'p1_social':  # same inputs as p1_visual; only the dspy signature differs (get_*dspy_cot)
         prompt_method = 'p1_visual'
+    elif prompt_method == 'p1_social_only':  # p1_social without 3D: p1_visual_only's inputs
+        prompt_method = 'p1_visual_only'
 
     if data['dataset'] == 'JRDB_gold':
         depth_method = '3D'
@@ -419,6 +430,8 @@ def get_allframes_bboxes(data, use_direction, depth_method, prompt_method):
 def get_frame_bboxes(data, use_direction, depth_method, frame_id, prompt_method):
     if prompt_method == 'p1_social':  # same inputs as p1_visual; only the dspy signature differs (get_*dspy_cot)
         prompt_method = 'p1_visual'
+    elif prompt_method == 'p1_social_only':  # p1_social without 3D: p1_visual_only's inputs
+        prompt_method = 'p1_visual_only'
 
     #print(frame_id)
 
@@ -558,7 +571,7 @@ def parse_args():
     parser.add_argument('model', type=str)
     parser.add_argument('frame_id', type=int)
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D','wilddet_3D'], default='detany_3D')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5','p1_bbox','p1_visual','p1_social','p1_visual_only','p1_visual_only_video','p1_depthanything'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4', 'p5','p1_bbox','p1_visual','p1_social','p1_social_only','p1_visual_only','p1_visual_only_video','p1_depthanything'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)
@@ -612,7 +625,7 @@ def parse_args_allframes():
         help="Comma-separated numbers or ranges, e.g. 1,2,5-7,10 or 0:51 or 0:51:15"
     )
     parser.add_argument('--depth_method', type=str, choices=['naive_3D_60FOV', 'naive_3D_110FOV', 'naive_3D_160FOV', 'unidepth_3D', 'detany_3D', 'wilddet_3D'], default='naive_3D_60FOV')
-    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4','p1_bbox','p1_visual','p1_social','p1_visual_only','p1_visual_only_video','p1_depthanything'], default='p1')
+    parser.add_argument('--prompt_method', type=str, choices=['baseline1','baseline2','p1', 'p2', 'p3', 'p4','p1_bbox','p1_visual','p1_social','p1_social_only','p1_visual_only','p1_visual_only_video','p1_depthanything'], default='p1')
     parser.add_argument('--api_base', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--api_key', type=str, default="testkey")
     parser.add_argument('--temperature', type=float, default=0.6)

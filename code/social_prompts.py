@@ -3,6 +3,7 @@ place so the dspy signatures (prompts.py) and the training system prompts use ex
 p1_visual (annotated image + person_id, x, y, z; full mode adds movement_direction); only the reasoning it asks for
 differs: proximity plus orientation, shared motion and interaction read from the image, and no chaining. Groups are
 disjoint and cover every person in both datasets' GT, hence "exactly one group".
+p1_social_only (SOCIAL_IDSONLY_*) is the same task without 3D positions, on p1_visual_only's inputs.
 """
 
 _CUES_HEAD = (
@@ -46,7 +47,46 @@ SOCIAL_FULL_TASK = (
     + _CUES_TAIL
 )
 
+# p1_social_only: the same task without 3D positions, on p1_visual_only's inputs (single: annotated image + person ids;
+# full: annotated image + person_id and movement_direction from the 2D box motion, no video). Proximity is judged from
+# the image.
+_CUES_HEAD_2D = (
+    "Weigh these cues together:\n"
+    "1. Proximity, from the image: members are usually within personal or social distance of each other. No 3D "
+    "positions are given, so judge distance from the boxes: people at a similar depth have boxes of similar size "
+    "with their feet at a similar height in the image, and two boxes that overlap or touch in the image can still be "
+    "far apart in depth. Judge it relative to this scene, not a fixed threshold.\n"
+    "2. Orientation, from the image: standing members usually face each other or a shared point (a circle, side by "
+    "side, or an L around a shared space); close people facing away, or one behind another in a queue, are usually "
+    "not a group.\n"
+)
+
+# single frame: the person ids only
+SOCIAL_IDSONLY_TASK = (
+    _INTRO
+    + "You are also given the list of their person_ids; no 3D positions are given.\n"
+    + _CUES_HEAD_2D
+    + "3. Shared motion, from the image: people walking together keep pace side by side, heading the same way; "
+      "someone close but walking elsewhere is usually not with them.\n"
+    + _CUES_TAIL
+)
+
+# full mode: keys person_id, movement_direction (2D, utils.get_movement_direction_2d)
+SOCIAL_IDSONLY_FULL_TASK = (
+    _INTRO
+    + "You are also given a JSON array of the people in it, each an object with keys 'person_id' and "
+      "'movement_direction' (their net movement direction in the image across the frames leading up to this one, or "
+      "'stationary'); no 3D positions are given.\n"
+    + _CUES_HEAD_2D
+    + "3. Shared motion: people walking together share the same movement_direction and stay side by side; someone "
+      "close but with a different movement_direction is usually not with them. Two stationary people can still be "
+      "a group.\n"
+    + _CUES_TAIL
+)
+
 # training system prompts (sft/rl_training_vlm_nodspy_merged.py --variant p1_social): the task plus the output format
 _JSON_ONLY = '\nRespond with ONLY a JSON object of the form {"groups": [[person_id, ...], ...]} and no other text.'
 SYSTEM_PROMPT_SOCIAL = SOCIAL_TASK + _JSON_ONLY
 SYSTEM_PROMPT_SOCIAL_FULL = SOCIAL_FULL_TASK + _JSON_ONLY
+SYSTEM_PROMPT_SOCIAL_IDSONLY = SOCIAL_IDSONLY_TASK + _JSON_ONLY  # not wired into the SFT / RL scripts yet
+SYSTEM_PROMPT_SOCIAL_IDSONLY_FULL = SOCIAL_IDSONLY_FULL_TASK + _JSON_ONLY
